@@ -3,6 +3,7 @@
 <title>Household Chore Tracker</title>
 <style>
 :root{font-family:system-ui,sans-serif;color:#203044;background:#f4f7fb}body{margin:0}header{background:#173b49;color:white;padding:25px 18px}header h1{margin:0}main{max-width:850px;margin:auto;padding:16px}.card{background:white;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 2px 12px #1232}nav{display:flex;gap:8px;flex-wrap:wrap}button,input{font:inherit}button{border:0;border-radius:9px;padding:10px 13px;background:#dce9ee;cursor:pointer}.active{background:#087d78;color:white}.task{display:flex;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid #ddd}.task input{width:20px;height:20px}small{color:#526678}.done{text-decoration:line-through;color:#70818a}footer{padding:15px;text-align:center}
+.calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px}.calendar-toolbar h2{font-size:1.2rem;text-align:center}.calendar-toolbar button{font-size:1.5rem}.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.calendar-head{text-align:center;font-size:.75rem;font-weight:700;padding:8px 0}.calendar-day{min-width:0;min-height:65px;background:#edf4f5;padding:5px 2px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:5px}.calendar-day small{font-size:.58rem;line-height:1.4;white-space:normal}.calendar-day.selected{background:#087d78;color:white}.calendar-day.is-today{outline:2px solid #e7a52e;outline-offset:-2px}@media(max-width:450px){.calendar-day{min-height:58px}.calendar-day small{font-size:.53rem}.card{padding:12px}}
 </style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><main><nav id="tabs"></nav><section id="content"></section></main><footer>Progress is saved on this device. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -25,7 +26,8 @@ const areas=[
 ['Myk','Kitchen, garage, outside deck'],
 ['Natalie','Bathroom, laundry, hall, mud room']
 ];
-let tab='Today';const tabs=['Today','Dishes','Laundry','Cleaning','Progress'];
+let tab='Today';const tabs=['Today','Calendar','Dishes','Laundry','Cleaning','Progress'];
+let calendarMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1),selectedDate=new Date();
 function week(){let d=new Date(),s=new Date(d);s.setDate(d.getDate()-d.getDay());return s.toLocaleDateString('en-CA')}
 function tasks(){return [
 ...days.map((day,i)=>({id:'dish'+i,day,person:dishes[i],name:'Wash dishes'})),
@@ -37,13 +39,27 @@ function checks(){try{return JSON.parse(localStorage.getItem(key())||'{}')}catch
 function mark(id,v){let c=checks();c[id]=v;localStorage.setItem(key(),JSON.stringify(c));render()}
 function taskHTML(t){let c=checks();return '<label class="task"><input type="checkbox" data-id="'+t.id+'" '+(c[t.id]?'checked':'')+'><span class="'+(c[t.id]?'done':'')+'"><strong>'+escapeHTML(t.person)+'</strong> — '+escapeHTML(t.name)+(t.day?' <small>('+escapeHTML(t.day)+')</small>':'')+'</span></label>'}
 function section(title,items,empty){return '<div class="card"><h2>'+title+'</h2>'+(items.length?items.map(taskHTML).join(''):'<p><small>'+empty+'</small></p>')+'</div>'}
+function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function calendarView(all){
+const y=calendarMonth.getFullYear(),m=calendarMonth.getMonth(),first=new Date(y,m,1).getDay(),count=new Date(y,m+1,0).getDate();
+let grid='<div class="calendar-grid">'+days.map(d=>'<div class="calendar-head">'+d.slice(0,3)+'</div>').join('');
+for(let i=0;i<first;i++)grid+='<div></div>';
+for(let n=1;n<=count;n++){
+let d=new Date(y,m,n),day=d.getDay(),k=dateKey(d),selected=k===dateKey(selectedDate),isToday=k===dateKey(new Date());
+let dayTasks=all.filter(t=>t.day===days[day]||(day===6&&t.id.startsWith('area')));
+grid+='<button class="calendar-day '+(selected?'selected ':'')+(isToday?'is-today':'')+'" data-date="'+k+'"><strong>'+n+'</strong><small>'+dayTasks.filter(t=>t.id.startsWith('dish')).length+' 🍽️ '+dayTasks.filter(t=>t.id.startsWith('laundry')).length+' 🧺'+(day===6?' 🧹':'')+'</small></button>';
+}
+grid+='</div>';
+let selectedDay=days[selectedDate.getDay()],selectedTasks=all.filter(t=>t.day===selectedDay||(selectedDate.getDay()===6&&t.id.startsWith('area')));
+return '<div class="card"><div class="calendar-toolbar"><button data-month="-1" aria-label="Previous month">‹</button><h2>'+calendarMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</h2><button data-month="1" aria-label="Next month">›</button></div>'+grid+'<p><small>🍽️ Dishes · 🧺 Laundry · 🧹 Weekly cleaning deadline</small></p></div>'+section('📅 '+selectedDate.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}),selectedTasks,'No scheduled chores');
+}
 function render(){
 document.getElementById('tabs').innerHTML=tabs.map(t=>'<button class="'+(tab===t?'active':'')+'" data-tab="'+t+'">'+t+'</button>').join('');
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
 let all=tasks(),now=new Date(),dayIndex=now.getDay(),today=days[dayIndex],c=checks(),done=all.filter(t=>c[t.id]).length;
 let summary='<div class="card"><h2>'+(tab==='Today'?today+' · Your chore dashboard':tab==='Progress'?'Weekly progress':tab)+'</h2><p><strong>'+done+' / '+all.length+'</strong> chores completed this week</p><progress value="'+done+'" max="'+all.length+'" style="width:100%"></progress><p><small>Week beginning '+week()+' · Weekly deadline: Saturday</small></p></div>';
 let html=summary;
-if(tab==='Today'){
+if(tab==='Calendar'){html=calendarView(all)}else if(tab==='Today'){
 let due=all.filter(t=>t.day===today);
 let upcoming=all.filter(t=>t.id.startsWith('laundry')&&t.day&&days.indexOf(t.day)>dayIndex&&!c[t.id]);
 let overdue=all.filter(t=>t.day&&days.indexOf(t.day)<dayIndex&&!c[t.id]);
@@ -58,6 +74,8 @@ html+=section(tab==='Progress'?'All weekly chores':'Assignments',filtered,'No ch
 }
 document.getElementById('content').innerHTML=html;
 document.querySelectorAll('[data-id]').forEach(x=>x.onchange=()=>mark(x.dataset.id,x.checked));
+document.querySelectorAll('[data-month]').forEach(x=>x.onclick=()=>{calendarMonth=new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()+Number(x.dataset.month),1);selectedDate=new Date(calendarMonth);render()});
+document.querySelectorAll('[data-date]').forEach(x=>x.onclick=()=>{let [y,m,d]=x.dataset.date.split('-').map(Number);selectedDate=new Date(y,m-1,d);render()});
 }
 function escapeHTML(s){return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
 render();
