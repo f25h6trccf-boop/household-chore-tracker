@@ -7,7 +7,7 @@
 .identity-overlay[hidden]{display:none!important}.identity-overlay{position:fixed;inset:0;background:#112c39ee;z-index:10;display:flex;align-items:center;justify-content:center;padding:18px}.identity-panel{background:white;border-radius:20px;padding:25px;width:min(100%,440px);box-sizing:border-box;text-align:center}.identity-panel select{width:100%;font:inherit;padding:12px;margin:12px 0;border:1px solid #a8b9c0;border-radius:10px}.identity-panel button{width:100%;background:#087d78;color:white}.identity-panel button:disabled{opacity:.5}.identity-banner{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;color:#fff}.identity-banner button{font-size:.85rem}
 .identity-banner{color:#173b49!important;background:#e0ebee;border-radius:12px;padding:10px 12px;margin:12px 0}.identity-banner strong{color:#173b49}.identity-banner button{background:#c3dce3;color:#123c51;font-weight:700}nav button{color:#173b49;font-weight:650}nav button.active{color:#fff;background:#087d78}.task-details{display:flex;flex-direction:column;gap:5px;min-width:0;line-height:1.4}.completion-credit{display:block;font-size:.88rem;color:#075d48;font-weight:600;text-decoration:none!important}.completion-credit strong{color:#075d48}.task .done{color:#63717d}.task input{flex-shrink:0;accent-color:#087d78}.card{color:#203044}
 .card select,.card input[type="number"],.card input[type="text"],#bonus-reason{display:block;box-sizing:border-box;width:100%;padding:12px;margin:7px 0 15px;border:1px solid #9caeb8;border-radius:9px;font:inherit}.card label{font-weight:650}#award-bonus{background:#087d78;color:white;font-weight:700}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.0 · Firebase sign-in enabled; progress is saved on this device. Review assignments against the handwritten original.</footer>
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.1 · Cloud chore sync when connected; device fallback when offline. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -44,8 +44,23 @@ function tasks(){return [
 ...areas.map(([person,name],i)=>({id:'area'+i,person,name,day:''}))
 ]}
 const key=(d=new Date())=>'chore-checks-'+week(d);
-function checks(d=new Date()){try{return JSON.parse(localStorage.getItem(key(d))||'{}')}catch{return {}}}
-function mark(id,v){let d=tab==='Calendar'?selectedDate:new Date(),c=checks(d);if(v)c[id]={by:currentUser,at:new Date().toISOString()};else delete c[id];localStorage.setItem(key(d),JSON.stringify(c));render()}
+const cloudWeeks={};let cloudReady=false,cloudError='';
+function cloudStatus(){return cloudError?'⚠️ Sync unavailable: '+cloudError:cloudReady?'☁️ Live sync connected':'⏳ Connecting to shared chores…'}
+function updateCloudStatus(){const e=document.getElementById('sync-status');if(e)e.textContent=cloudStatus()}
+
+function checks(d=new Date()){
+ const w=week(d);if(cloudReady&&cloudWeeks[w])return cloudWeeks[w];
+ try{return JSON.parse(localStorage.getItem(key(d))||'{}')}catch{return {}}
+}
+function mark(id,v){
+ let d=tab==='Calendar'?selectedDate:new Date(),w=week(d),c={...checks(d)};
+ const entry=v?{by:currentUser,at:new Date().toISOString()}:null;
+ if(v)c[id]=entry;else delete c[id];
+ localStorage.setItem(key(d),JSON.stringify(c));
+ if(cloudReady){cloudWeeks[w]=c}
+ render();
+ if(window.saveCloudChore)window.saveCloudChore(w,id,entry).catch(e=>{cloudError=e.message||String(e);updateCloudStatus()});
+}
 function taskHTML(t,d=new Date()){
 let c=checks(d),entry=c[t.id],who=entry&&typeof entry==='object'&&entry.by?entry.by:'Not recorded (older checkmark)';
 let when=entry&&typeof entry==='object'&&entry.at?new Date(entry.at).toLocaleString():'';
@@ -141,7 +156,7 @@ document.getElementById('tabs').innerHTML=visibleTabs.map(t=>'<button class="'+(
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
 let all=tasks(),now=new Date(),dayIndex=now.getDay(),today=days[dayIndex],c=checks(),done=all.filter(t=>c[t.id]).length;
 let summary='<div class="card"><h2>'+(tab==='Today'?today+' · Your chore dashboard':tab==='Progress'?'Weekly progress':tab)+'</h2><p><strong>'+done+' / '+all.length+'</strong> chores completed this week</p><progress value="'+done+'" max="'+all.length+'" style="width:100%"></progress><p><small>Week beginning '+week()+' · Weekly deadline: Saturday</small></p></div>';
-let html=summary;
+let html='<p id="sync-status" role="status" style="padding:4px 10px;color:#365a64">'+escapeHTML(cloudStatus())+'</p>'+summary;
 if(tab==='Logan Only'&&currentUser==='Logan'&&loganUnlocked){html=adminView(all)}else if(tab==='Rewards'){html=rewardsView()}else if(tab==='Calendar'){html=calendarView(all)}else if(tab==='Today'){
 let due=all.filter(t=>taskDays(t).includes(today));
 let upcoming=all.filter(t=>t.id.startsWith('laundry')&&taskDays(t).some(d=>days.indexOf(d)>dayIndex)&&!c[t.id]);
@@ -168,12 +183,39 @@ showIdentity()
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
 import {getAuth,onAuthStateChanged,signInAnonymously} from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
+import {getFirestore,collection,query,where,onSnapshot,doc,setDoc} from "https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js";
 const firebaseConfig={apiKey:"AIzaSyCfZn2UACHKcDD3OLkm-P5lA8vgTDq42zM",authDomain:"household-chore-tracker-a42b4.firebaseapp.com",projectId:"household-chore-tracker-a42b4",storageBucket:"household-chore-tracker-a42b4.firebasestorage.app",messagingSenderId:"447582728746",appId:"1:447582728746:web:4da4156830949c5c76c953",measurementId:"G-X77TER0D6B"};
-try {
- const app=initializeApp(firebaseConfig),auth=getAuth(app);
+try{
+ const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
+ let unsub=null,activeWeek='';
+ window.saveCloudChore=async(w,id,entry)=>{
+   if(!auth.currentUser)throw Error('Not signed in');
+   await setDoc(doc(db,'chores',w+'_'+id),{week:w,taskId:id,checked:!!entry,by:entry?.by||'',at:entry?.at||'',updatedAt:new Date().toISOString()},{merge:true});
+ };
+ const watchWeek=w=>{
+   if(unsub)unsub();
+   activeWeek=w;cloudReady=false;updateCloudStatus();
+   unsub=onSnapshot(query(collection(db,'chores'),where('week','==',w)),snapshot=>{
+     const next={};snapshot.forEach(x=>{const v=x.data();if(v.checked&&tasks().some(t=>t.id===v.taskId))next[v.taskId]={by:v.by,at:v.at}});
+     cloudWeeks[w]=next;cloudReady=true;cloudError='';
+     localStorage.setItem('chore-checks-'+w,JSON.stringify(next));
+     if(tab!=='Calendar'||week(selectedDate)===w)render();
+     updateCloudStatus();
+   },e=>{cloudReady=false;cloudError=e.code||e.message;updateCloudStatus()});
+ };
  onAuthStateChanged(auth,async user=>{
-   if(!user){try{await signInAnonymously(auth)}catch(e){console.error("Anonymous Firebase sign-in failed",e)}}
-   else {console.info("Firebase anonymous session active");}
+   if(!user){try{await signInAnonymously(auth)}catch(e){cloudError=e.message;updateCloudStatus()}return}
+   watchWeek(week());
+   window.watchCloudWeek=watchWeek;
  });
-} catch(e){console.error("Firebase initialization failed",e)}
+ // Calendar can view another week; listen to the selected week when it changes.
+ const originalRender=render;
+ render=function(){
+   if(auth.currentUser&&window.watchCloudWeek){
+     const target=tab==='Calendar'?week(selectedDate):week();
+     if(target!==activeWeek)watchWeek(target);
+   }
+   originalRender();
+ };
+}catch(e){cloudError=e.message||String(e);updateCloudStatus()}
 </script></html>
