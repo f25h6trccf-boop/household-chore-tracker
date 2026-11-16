@@ -8,7 +8,7 @@
 .identity-banner{color:#173b49!important;background:#e0ebee;border-radius:12px;padding:10px 12px;margin:12px 0}.identity-banner strong{color:#173b49}.identity-banner button{background:#c3dce3;color:#123c51;font-weight:700}nav button{color:#173b49;font-weight:650}nav button.active{color:#fff;background:#087d78}.task-details{display:flex;flex-direction:column;gap:5px;min-width:0;line-height:1.4}.completion-credit{display:block;font-size:.88rem;color:#075d48;font-weight:600;text-decoration:none!important}.completion-credit strong{color:#075d48}.task .done{color:#63717d}.task input{flex-shrink:0;accent-color:#087d78}.card{color:#203044}
 .card select,.card input[type="number"],.card input[type="text"],#bonus-reason{display:block;box-sizing:border-box;width:100%;padding:12px;margin:7px 0 15px;border:1px solid #9caeb8;border-radius:9px;font:inherit}.card label{font-weight:650}#award-bonus{background:#087d78;color:white;font-weight:700}
 .point-form .point-field{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:20px 0}.point-form .point-field label{display:block;font-weight:700;margin:0}.point-form .point-field input,.point-form .point-field select{display:block;width:100%;min-width:0;box-sizing:border-box;padding:12px;border:1px solid #a8b9c0;border-radius:10px;font:inherit;background:#fff;color:#203045}.point-form .point-field select{background:#e9edf0}.point-form button{display:inline-block;margin-top:8px}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.4 · Improved point forms and save confirmations · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.5 · Logan-only household reset controls · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -50,8 +50,8 @@ function cloudStatus(){return cloudError?'⚠️ Sync unavailable: '+cloudError:
 function updateCloudStatus(){const e=document.getElementById('sync-status');if(e)e.textContent=cloudStatus()}
 
 function checks(d=new Date()){
- const w=week(d);if(cloudReady&&cloudWeeks[w])return cloudWeeks[w];
- try{return JSON.parse(localStorage.getItem(key(d))||'{}')}catch{return {}}
+ const w=week(d);if(cloudReady&&cloudWeeks[w])return Object.fromEntries(Object.entries(cloudWeeks[w]).filter(([id,v])=>afterReset(v.at,taskResetAt)));
+ try{return Object.fromEntries(Object.entries(JSON.parse(localStorage.getItem(key(d))||'{}')).filter(([id,v])=>afterReset(v?.at,taskResetAt)))}catch{return {}}
 }
 function mark(id,v){
  let d=tab==='Calendar'?selectedDate:new Date(),w=week(d),c={...checks(d)};
@@ -63,7 +63,7 @@ function mark(id,v){
  if(window.saveCloudChore)window.saveCloudChore(w,id,entry).catch(e=>{cloudError=e.message||String(e);updateCloudStatus()});
 }
 function taskHTML(t,d=new Date()){
-let c=checks(d),entry=c[t.id],who=entry&&typeof entry==='object'&&entry.by?entry.by:'Not recorded (older checkmark)';
+let c=checks(d),entry=c[t.id];if(entry&&!afterReset(entry.at,taskResetAt))entry=null;let who=entry&&typeof entry==='object'&&entry.by?entry.by:'Not recorded (older checkmark)';
 let when=entry&&typeof entry==='object'&&entry.at?new Date(entry.at).toLocaleString():'';
 return '<label class="task"><input type="checkbox" data-id="'+t.id+'" '+(entry?'checked':'')+'><span class="task-details"><span class="'+(entry?'done':'')+'"><strong>'+escapeHTML(t.person)+'</strong> — '+escapeHTML(t.name)+(t.day?' <small>('+escapeHTML(taskDays(t).join(' / '))+')</small>':'')+'</span>'+(entry?'<span class="completion-credit">✓ Checked off by <strong>'+escapeHTML(who)+'</strong>'+(when?' · '+escapeHTML(when):'')+'</span>':'')+'</span></label>';
 }
@@ -148,22 +148,37 @@ function pointLedger(name){
  for(let i=0;i<localStorage.length;i++){
   const k=localStorage.key(i);if(!k||!k.startsWith('chore-checks-'))continue;
   try{const c=JSON.parse(localStorage.getItem(k));for(const [id,v] of Object.entries(c)){
-   if(v&&typeof v==='object'&&v.by===name){
+   if(v&&typeof v==='object'&&v.by===name&&afterReset(v.at,pointResetAt)){
     const t=all.find(t=>t.id===id),amount=id.startsWith('area')?20:id.startsWith('laundry')?15:10;
     ledger.push({amount,label:t?t.name:'Chore '+id,detail:t?'Assigned to '+t.person:'Saved chore',at:v.at||''});
    }
   }}catch{}
  }
- for(const x of bonusEntries().filter(x=>x.person===name)){
+ for(const x of bonusEntries().filter(x=>x.person===name&&afterReset(x.at,pointResetAt))){
   ledger.push({amount:Number(x.amount)||0,label:x.reason,detail:'Bonus from '+x.by,at:x.at||''});
  }
- for(const x of pointMovements){
+ for(const x of pointMovements.filter(x=>afterReset(x.at,pointResetAt))){
  if(x.from===name)ledger.push({amount:-x.amount,label:x.kind==='transfer'?'Sent to '+x.to:'Adult deduction',detail:x.reason+' · by '+x.by,at:x.at});
  if(x.kind==='transfer'&&x.to===name)ledger.push({amount:x.amount,label:'Received from '+x.from,detail:x.reason+' · by '+x.by,at:x.at});
  }
  return ledger.sort((x,y)=>String(y.at).localeCompare(String(x.at)));
 }
 let pointMovements=[];
+let pointResetAt='',taskResetAt='';
+function afterReset(at,cutoff){return !cutoff||(at&&String(at)>cutoff)}
+function resetPanel(){return '<div class="card"><h2>🔄 Household reset</h2><p>Logan only. Choose separately whether to clear everyone’s point balances and whether to reset all chore checkmarks. Both changes sync across phones.</p><button id="household-reset" type="button">Refresh / Reset household</button><p><small>Resets cannot be undone in the app. This does not delete chore assignments or family names.</small></p></div>'}
+async function resetHousehold(){
+ if(currentUser!=='Logan'||!loganUnlocked)return;
+ if(!window.saveHouseholdReset){alert('Firebase is not connected. Try again later.');return}
+ const clearPoints=confirm('Do you want to clear ALL points for everyone?\n\nOK = Yes, Cancel = No');
+ const clearTasks=confirm('Do you want to reset ALL task checkmarks for everyone?\n\nOK = Yes, Cancel = No');
+ if(!clearPoints&&!clearTasks){alert('No changes made.');return}
+ if(!confirm('Final confirmation: reset '+(clearPoints?'ALL points':'')+(clearPoints&&clearTasks?' AND ':'')+(clearTasks?'ALL tasks':'')+' on every phone?'))return;
+ const button=document.getElementById('household-reset');if(button){button.disabled=true;button.textContent='Resetting…'}
+ try{await window.saveHouseholdReset(clearPoints,clearTasks);alert('Reset saved. Changes will sync to connected phones.')}
+ catch(e){alert('Reset failed: '+(e.message||e));if(button){button.disabled=false;button.textContent='Refresh / Reset household'}}
+}
+
 function score(name){return pointLedger(name).reduce((n,x)=>n+x.amount,0)}
 let pointsNotice='';
 async function movePoints(kind){
@@ -214,7 +229,7 @@ function rewardsView(){
 }
 function adminView(all){
 let c=checks(),people=members.map(n=>({name:n,assigned:all.filter(t=>t.person.split(' & ').includes(n)),completed:all.filter(t=>t.person.split(' & ').includes(n)&&c[t.id])}));
-return '<div class="card"><h2>🔒 Logan’s private dashboard</h2><p>Household overview for the current week.</p><p><small>This page is hidden behind a basic PIN screen, but GitHub Pages cannot provide real security for client-side passwords.</small></p></div><div class="card"><h2>Family chore progress</h2>'+people.map(p=>'<div class="task"><span><strong>'+escapeHTML(p.name)+'</strong> — '+p.completed.length+' of '+p.assigned.length+' assignments completed</span></div>').join('')+'</div>'+section('All weekly assignments',all,'No assignments')+'<div id="monitor-area">'+monitorView()+'</div>';
+return '<div class="card"><h2>🔒 Logan’s private dashboard</h2><p>Household overview for the current week.</p><p><small>This page is hidden behind a basic PIN screen, but GitHub Pages cannot provide real security for client-side passwords.</small></p></div><div class="card"><h2>Family chore progress</h2>'+people.map(p=>'<div class="task"><span><strong>'+escapeHTML(p.name)+'</strong> — '+p.completed.length+' of '+p.assigned.length+' assignments completed</span></div>').join('')+'</div>'+section('All weekly assignments',all,'No assignments')+'<div id="monitor-area">'+monitorView()+'</div>'+resetPanel();
 }
 function render(){
 document.getElementById('identity-banner').innerHTML='<span>👤 Viewing as <strong>'+escapeHTML(currentUser)+'</strong></span><button id="switch-member">Switch name</button>';
@@ -242,6 +257,7 @@ html+=section(tab==='Progress'?'All weekly chores':'Assignments',filtered,'No ch
 document.getElementById('content').innerHTML=html;
 document.querySelectorAll('[data-id]').forEach(x=>x.onchange=()=>mark(x.dataset.id,x.checked));
 const bonusButton=document.getElementById('award-bonus');if(bonusButton)bonusButton.onclick=awardBonus;for(const kind of ['transfer','adjust']){const b=document.getElementById(kind+'-submit');if(b)b.onclick=()=>movePoints(kind)}
+const resetButton=document.getElementById('household-reset');if(resetButton)resetButton.onclick=resetHousehold;
 const scanButton=document.getElementById('scan-now');if(scanButton)scanButton.onclick=refreshMonitor;
 document.querySelectorAll('[data-month]').forEach(x=>x.onclick=()=>{calendarMonth=new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()+Number(x.dataset.month),1);selectedDate=new Date(calendarMonth);render()});
 document.querySelectorAll('[data-date]').forEach(x=>x.onclick=()=>{let [y,m,d]=x.dataset.date.split('-').map(Number);selectedDate=new Date(y,m-1,d);render()});
@@ -257,6 +273,27 @@ const firebaseConfig={apiKey:"AIzaSyCfZn2UACHKcDD3OLkm-P5lA8vgTDq42zM",authDomai
 try{
  const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
  let unsub=null,activeWeek='';
+ window.saveHouseholdReset=async(clearPoints,clearTasks)=>{
+ if(!auth.currentUser)throw Error('Not signed in');
+ const now=new Date().toISOString();
+ const data={updatedBy:currentUser,updatedAt:now};
+ if(clearPoints)data.pointResetAt=now;
+ if(clearTasks)data.taskResetAt=now;
+ await setDoc(doc(db,'chores','household-reset'),data,{merge:true});
+ };
+ onSnapshot(doc(db,'chores','household-reset'),snapshot=>{
+ if(!snapshot.exists())return;
+ const data=snapshot.data();
+ if(data.pointResetAt&&data.pointResetAt!==pointResetAt){
+   pointResetAt=data.pointResetAt;
+   localStorage.removeItem('chore-bonus-points');
+ }
+ if(data.taskResetAt&&data.taskResetAt!==taskResetAt){
+   taskResetAt=data.taskResetAt;
+   for(const k of Object.keys(localStorage)){if(k.startsWith('chore-checks-'))localStorage.removeItem(k)}
+ }
+ render();
+ },e=>{cloudError='Reset sync: '+e.message;updateCloudStatus()});
  window.savePointMovement=async entry=>{
  if(!auth.currentUser)throw Error('Not signed in');
  await setDoc(doc(collection(db,'chores')),{...entry,type:'point-movement'});
