@@ -67,9 +67,54 @@ if(select.value==='Logan'&&document.getElementById('admin-pin').value!=='0118'){
 loganUnlocked=select.value==='Logan';currentUser=select.value;
 localStorage.setItem('chore-current-user',currentUser);overlay.hidden=true;overlay.style.display='none';tab='Today';render()};
 }
+let monitorState={last:null,history:[],runs:0};
+function auditApp(){
+const results=[],add=(name,ok,detail)=>results.push({name,ok,detail});
+let all=[],stored={};
+try{all=tasks();add('Chore data loads',Array.isArray(all)&&all.length>0,all.length+' assignments found')}catch(e){add('Chore data loads',false,String(e))}
+add('Unique task identifiers',new Set(all.map(t=>t.id)).size===all.length,'Prevents checkboxes sharing the same saved state');
+add('Daily dishes coverage',days.every(d=>all.filter(t=>t.id.startsWith('dish')&&t.day===d).length===1),'One dish assignment per day');
+add('Laundry assignments',laundry.length===7&&laundry.every(x=>x[0]&&x[1]),laundry.length+' laundry assignments configured');
+add('Cleaning assignments',areas.length>0&&areas.every(x=>x[0]&&x[1]),areas.length+' cleaning assignments configured');
+add('Family name mapping',all.every(t=>t.person.split(' & ').every(n=>members.includes(n))), 'Checks that assigned names exist in the selector');
+add('Calendar date calculations',[0,1,2,3,4,5,6].every(i=>days[new Date(2026,10,15+i).getDay()]===days[i]),'Validates weekday mapping');
+try{let probe='chore-monitor-probe';localStorage.setItem(probe,'ok');let ok=localStorage.getItem(probe)==='ok';localStorage.removeItem(probe);add('Device storage write/read',ok,'Tests whether local progress can be saved')}catch(e){add('Device storage write/read',false,'Storage unavailable: '+e.message)}
+try{stored=checks();add('Saved checkmarks format',stored&&typeof stored==='object'&&!Array.isArray(stored),'Saved weekly progress is readable')}catch(e){add('Saved checkmarks format',false,String(e))}
+add('No unknown saved tasks',Object.keys(stored).every(id=>all.some(t=>t.id===id)),'Detects obsolete or mismatched saved IDs');
+add('Navigation tabs present',tabs.includes('Today')&&tabs.includes('Calendar')&&tabs.includes('Progress'),'Checks main navigation configuration');
+add('Admin access state',currentUser==='Logan'&&loganUnlocked,'Admin monitor only runs after Logan PIN entry');
+const suggestions=[];
+const overdue=all.filter(t=>t.day&&days.indexOf(t.day)<new Date().getDay()&&!stored[t.id]).length;
+if(overdue)suggestions.push(overdue+' earlier scheduled chore(s) are still unchecked. Consider an overdue summary.');
+if(!navigator.onLine)suggestions.push('Device appears offline. Changes will stay on this device only.');
+suggestions.push('Progress does not sync between family devices. Add a shared database for household-wide updates.');
+suggestions.push('The PIN is stored in public browser code. Use server-side authentication for real admin privacy.');
+suggestions.push('Laundry entries with multiple possible days currently display on their first matching day; consider explicit start and end dates.');
+suggestions.push('Weekly checkmarks are reused across calendar weeks, including past/future month views. Add date-specific history.');
+let time=new Date(),report={time:time.toLocaleTimeString(),timestamp:time.toISOString(),results,suggestions,passed:results.filter(x=>x.ok).length,failed:results.filter(x=>!x.ok).length};
+monitorState.last=report;monitorState.runs++;
+monitorState.history.unshift({time:report.time,passed:report.passed,failed:report.failed});
+monitorState.history=monitorState.history.slice(0,12);
+return report;
+}
+function monitorView(){
+let r=monitorState.last||auditApp();
+return '<div class="card"><h2>🧠 Live App Monitor</h2><p><strong>Monitoring while this app is open</strong> · Automated checks every 30 seconds</p><p><strong>'+r.passed+' passed · '+r.failed+' flagged</strong> out of '+r.results.length+' checks</p><p><small>Last scan: '+escapeHTML(r.time)+' · Scans this session: '+monitorState.runs+'</small></p><button id="scan-now">Run checks now</button></div>'+
+'<div class="card"><h2>Function checks</h2>'+r.results.map(x=>'<div class="task"><span>'+(x.ok?'✅':'⚠️')+' <strong>'+escapeHTML(x.name)+'</strong><div><small>'+escapeHTML(x.detail)+'</small></div></span></div>').join('')+'</div>'+
+'<div class="card"><h2>💡 Improvement suggestions</h2>'+r.suggestions.map(x=>'<p>• '+escapeHTML(x)+'</p>').join('')+'</div>'+
+'<div class="card"><h2>Recent live scans</h2>'+monitorState.history.map(x=>'<div class="task"><small>'+escapeHTML(x.time)+' — '+x.passed+' passed, '+x.failed+' flagged</small></div>').join('')+'</div>'+
+'<div class="card"><small>This is a local automated diagnostics engine, not a cloud AI model. It checks known invariants without modifying chores or GitHub. It cannot test every possible interaction, detect every bug, or keep running after the browser closes.</small></div>';
+}
+function refreshMonitor(){
+if(tab==='Logan Only'&&loganUnlocked&&currentUser==='Logan'){
+auditApp();const el=document.getElementById('monitor-area');if(el)el.innerHTML=monitorView();
+const b=document.getElementById('scan-now');if(b)b.onclick=refreshMonitor;
+}}
+setInterval(()=>{if(tab==='Logan Only'&&loganUnlocked&&currentUser==='Logan')refreshMonitor()},30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tab==='Logan Only'&&loganUnlocked&&currentUser==='Logan')refreshMonitor()});
 function adminView(all){
 let c=checks(),people=members.map(n=>({name:n,assigned:all.filter(t=>t.person.split(' & ').includes(n)),completed:all.filter(t=>t.person.split(' & ').includes(n)&&c[t.id])}));
-return '<div class="card"><h2>🔒 Logan’s private dashboard</h2><p>Household overview for the current week.</p><p><small>This page is hidden behind a basic PIN screen, but GitHub Pages cannot provide real security for client-side passwords.</small></p></div><div class="card"><h2>Family chore progress</h2>'+people.map(p=>'<div class="task"><span><strong>'+escapeHTML(p.name)+'</strong> — '+p.completed.length+' of '+p.assigned.length+' assignments completed</span></div>').join('')+'</div>'+section('All weekly assignments',all,'No assignments');
+return '<div class="card"><h2>🔒 Logan’s private dashboard</h2><p>Household overview for the current week.</p><p><small>This page is hidden behind a basic PIN screen, but GitHub Pages cannot provide real security for client-side passwords.</small></p></div><div class="card"><h2>Family chore progress</h2>'+people.map(p=>'<div class="task"><span><strong>'+escapeHTML(p.name)+'</strong> — '+p.completed.length+' of '+p.assigned.length+' assignments completed</span></div>').join('')+'</div>'+section('All weekly assignments',all,'No assignments')+'<div id="monitor-area">'+monitorView()+'</div>';
 }
 function render(){
 document.getElementById('identity-banner').innerHTML='<span>👤 Viewing as <strong>'+escapeHTML(currentUser)+'</strong></span><button id="switch-member">Switch name</button>';
@@ -96,6 +141,7 @@ html+=section(tab==='Progress'?'All weekly chores':'Assignments',filtered,'No ch
 }
 document.getElementById('content').innerHTML=html;
 document.querySelectorAll('[data-id]').forEach(x=>x.onchange=()=>mark(x.dataset.id,x.checked));
+const scanButton=document.getElementById('scan-now');if(scanButton)scanButton.onclick=refreshMonitor;
 document.querySelectorAll('[data-month]').forEach(x=>x.onclick=()=>{calendarMonth=new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()+Number(x.dataset.month),1);selectedDate=new Date(calendarMonth);render()});
 document.querySelectorAll('[data-date]').forEach(x=>x.onclick=()=>{let [y,m,d]=x.dataset.date.split('-').map(Number);selectedDate=new Date(y,m-1,d);render()});
 }
