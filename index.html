@@ -9,7 +9,8 @@
 .card select,.card input[type="number"],.card input[type="text"],#bonus-reason{display:block;box-sizing:border-box;width:100%;padding:12px;margin:7px 0 15px;border:1px solid #9caeb8;border-radius:9px;font:inherit}.card label{font-weight:650}#award-bonus{background:#087d78;color:white;font-weight:700}
 .point-form .point-field{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:20px 0}.point-form .point-field label{display:block;font-weight:700;margin:0}.point-form .point-field input,.point-form .point-field select{display:block;width:100%;min-width:0;box-sizing:border-box;padding:12px;border:1px solid #a8b9c0;border-radius:10px;font:inherit;background:#fff;color:#203045}.point-form .point-field select{background:#e9edf0}.point-form button{display:inline-block;margin-top:8px}
 .admin-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.admin-stats>div{background:#eaf4f3;border-radius:12px;padding:12px;text-align:center}.admin-stats strong{display:block;font-size:1.4rem}.admin-stats small{display:block}.approval-item{padding:14px 0;border-bottom:1px solid #ddd}.approval-actions{display:flex;gap:8px;margin-top:9px}.primary-action{background:#087d78;color:white;font-weight:700}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.9 · Updated live diagnostics · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+.edit-task{border-bottom:1px solid #d9e2e7;padding:14px 0}.edit-task summary{cursor:pointer;line-height:1.5}.edit-task label{display:block;margin-top:14px}.edit-task button{margin-top:8px}
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 3.0 · Shared progress and Logan assignment editor · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -40,11 +41,12 @@ let calendarMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1),sel
 function week(d=new Date()){let s=new Date(d.getFullYear(),d.getMonth(),d.getDate());s.setDate(s.getDate()-s.getDay());return dateKey(s)}
 function laundryDays(i){return i===0?['Friday','Saturday']:i===1?['Saturday','Sunday']:[['Friday','Saturday'],['Saturday','Sunday'],['Monday'],['Friday'],['Tuesday'],['Thursday'],['Wednesday']][i]}
 function taskDays(t){return t.days|| (t.day?[t.day]:[])}
+let taskOverrides={};
 function tasks(){return [
 ...days.map((day,i)=>({id:'dish'+i,day,person:dishes[i],name:'Wash dishes'})),
 ...laundry.map(([person,name],i)=>({id:'laundry'+i,person,name,day:laundryDays(i)[0],days:laundryDays(i)})),
 ...areas.map(([person,name],i)=>({id:'area'+i,person,name,day:''}))
-]}
+].map(t=>({...t,...(taskOverrides[t.id]||{})}))}
 const key=(d=new Date())=>'chore-checks-'+week(d);
 const cloudWeeks={};let cloudReady=false,cloudError='';
 function cloudStatus(){return cloudError?'⚠️ Sync unavailable: '+cloudError:cloudReady?'☁️ Live sync connected':'⏳ Connecting to shared chores…'}
@@ -259,9 +261,26 @@ function parentDashboard(all){
  const c=checks(),done=all.filter(t=>c[t.id]).length;
  return '<div class="card"><h2>👨‍👩‍👧 Parent dashboard — '+escapeHTML(currentUser)+'</h2><div class="admin-stats"><div><strong>'+done+'/'+all.length+'</strong><small>Completed chores</small></div><div><strong>'+bonusRequests.filter(x=>x.status==='pending').length+'</strong><small>To verify</small></div><div><strong>'+members.length+'</strong><small>Family members</small></div></div><p>Review extra chores and approve or decline bonus points.</p></div>'+approvalPanel()+'<div class="card"><h2>👥 Household balances</h2>'+members.map(n=>'<div class="task"><span><strong>'+escapeHTML(n)+'</strong> — '+score(n)+' ⭐</span></div>').join('')+'</div>';
 }
+function householdOverview(all){
+ const c=checks(),people=members.map(n=>({name:n,assigned:all.filter(t=>t.person.split(' & ').includes(n)),completed:all.filter(t=>t.person.split(' & ').includes(n)&&c[t.id])}));
+ return '<div class="card"><h2>👨‍👩‍👧‍👦 Family chore progress</h2>'+people.map(p=>'<div class="task"><span><strong>'+escapeHTML(p.name)+'</strong> — '+p.completed.length+' of '+p.assigned.length+' assignments completed <small>· '+score(p.name)+' ⭐</small><div><progress value="'+p.completed.length+'" max="'+Math.max(1,p.assigned.length)+'" style="width:100%"></progress></div></span></div>').join('')+'</div>'+section('All weekly assignments',all,'No assignments');
+}
+function householdEditor(all){
+ return '<div class="card"><h2>✏️ Edit household assignments</h2><p>Logan only. Edit who is responsible, the chore description, and the scheduled day. Save each assignment to sync changes across devices.</p>'+
+ all.map(t=>'<details class="edit-task"><summary><strong>'+escapeHTML(t.person)+'</strong> — '+escapeHTML(t.name)+'</summary><label for="edit-person-'+t.id+'">Assigned to</label><select id="edit-person-'+t.id+'">'+members.map(n=>'<option value="'+escapeHTML(n)+'" '+(t.person===n?'selected':'')+'>'+escapeHTML(n)+'</option>').join('')+(t.person.includes(' & ')?'<option value="'+escapeHTML(t.person)+'" selected>'+escapeHTML(t.person)+'</option>':'')+'</select><label for="edit-name-'+t.id+'">Chore description</label><input type="text" id="edit-name-'+t.id+'" maxlength="160" value="'+escapeHTML(t.name)+'"><label for="edit-day-'+t.id+'">Scheduled day</label><select id="edit-day-'+t.id+'"><option value="" '+(!t.day?'selected':'')+'>Weekly / no specific day</option>'+days.map(d=>'<option value="'+d+'" '+(t.day===d?'selected':'')+'>'+d+'</option>').join('')+'</select><button data-save-task="'+t.id+'" class="primary-action">Save assignment</button></details>').join('')+'</div>';
+}
+async function saveEditedTask(id){
+ if(currentUser!=='Logan'||!loganUnlocked)return;
+ const person=document.getElementById('edit-person-'+id)?.value,name=document.getElementById('edit-name-'+id)?.value.trim(),day=document.getElementById('edit-day-'+id)?.value;
+ if(!members.includes(person)&&!members.some(n=>person?.split(' & ').includes(n))){alert('Select a household member.');return}
+ if(!name||!window.saveTaskOverride){alert('Enter a chore description and connect to Firebase.');return}
+ const override={person,name,day,days:day?[day]:[]};
+ try{await window.saveTaskOverride(id,override);taskOverrides[id]=override;render();alert('Assignment saved for all phones.')}
+ catch(e){alert('Could not save assignment: '+e.message)}
+}
 function adminView(all){
-let c=checks(),people=members.map(n=>({name:n,assigned:all.filter(t=>t.person.split(' & ').includes(n)),completed:all.filter(t=>t.person.split(' & ').includes(n)&&c[t.id])}));
-return '<div class="card"><h2>📊 Logan’s command center</h2><div class="admin-stats"><div><strong>'+all.filter(t=>c[t.id]).length+'/'+all.length+'</strong><small>Completed</small></div><div><strong>'+bonusRequests.filter(x=>x.status==='pending').length+'</strong><small>To approve</small></div><div><strong>'+members.length+'</strong><small>Members</small></div></div></div>'+approvalPanel()+'<div class="card"><h2>🔒 Logan’s private dashboard</h2><p>Household overview for the current week.</p><p><small>This page is hidden behind a basic PIN screen, but GitHub Pages cannot provide real security for client-side passwords.</small></p></div><div class="card"><h2>Family chore progress</h2>'+people.map(p=>'<div class="task"><span><strong>'+escapeHTML(p.name)+'</strong> — '+p.completed.length+' of '+p.assigned.length+' assignments completed</span></div>').join('')+'</div>'+section('All weekly assignments',all,'No assignments')+'<div id="monitor-area">'+monitorView()+'</div>'+resetPanel();
+ const c=checks(),done=all.filter(t=>c[t.id]).length;
+ return '<div class="card"><h2>📊 Logan’s command center</h2><div class="admin-stats"><div><strong>'+done+'/'+all.length+'</strong><small>Completed</small></div><div><strong>'+bonusRequests.filter(x=>x.status==='pending').length+'</strong><small>To approve</small></div><div><strong>'+members.length+'</strong><small>Members</small></div></div></div>'+approvalPanel()+householdEditor(all)+'<div id="monitor-area">'+monitorView()+'</div>'+resetPanel();
 }
 function render(){
 document.getElementById('identity-banner').innerHTML='<span>👤 Viewing as <strong>'+escapeHTML(currentUser)+'</strong></span><button id="switch-member">Switch name</button>';
@@ -273,7 +292,7 @@ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.
 let all=tasks(),now=new Date(),dayIndex=now.getDay(),today=days[dayIndex],c=checks(),done=all.filter(t=>c[t.id]).length;
 let summary='<div class="card"><h2>'+(tab==='Today'?today+' · Your chore dashboard':tab==='Progress'?'Weekly progress':tab)+'</h2><p><strong>'+done+' / '+all.length+'</strong> chores completed this week</p><progress value="'+done+'" max="'+all.length+'" style="width:100%"></progress><p><small>Week beginning '+week()+' · Weekly deadline: Saturday</small></p></div>';
 let html='<p id="sync-status" role="status" style="padding:4px 10px;color:#365a64">'+escapeHTML(cloudStatus())+'</p>'+summary;
-if(tab==='Logan Only'&&currentUser==='Logan'&&loganUnlocked){html=adminView(all)}else if(tab==='Parent Dashboard'&&managerUnlocked&&pointManagers.includes(currentUser)){html=parentDashboard(all)}else if(tab==='Rewards'){html=rewardsView()}else if(tab==='Bonus Chores'){html=bonusChoresView()}else if(tab==='Calendar'){html=calendarView(all)}else if(tab==='Today'){
+if(tab==='Logan Only'&&currentUser==='Logan'&&loganUnlocked){html=adminView(all)}else if(tab==='Parent Dashboard'&&managerUnlocked&&pointManagers.includes(currentUser)){html=parentDashboard(all)}else if(tab==='Rewards'){html=rewardsView()}else if(tab==='Bonus Chores'){html=bonusChoresView()}else if(tab==='Progress'){html+=householdOverview(all)}else if(tab==='Calendar'){html=calendarView(all)}else if(tab==='Today'){
 let due=all.filter(t=>taskDays(t).includes(today));
 let upcoming=all.filter(t=>t.id.startsWith('laundry')&&taskDays(t).some(d=>days.indexOf(d)>dayIndex)&&!c[t.id]);
 let overdue=all.filter(t=>taskDays(t).length&&taskDays(t).every(d=>days.indexOf(d)<dayIndex)&&!c[t.id]);
@@ -292,6 +311,7 @@ const bonusButton=document.getElementById('award-bonus');if(bonusButton)bonusBut
 const extraButton=document.getElementById('extra-submit');if(extraButton)extraButton.onclick=submitBonusChore;
 document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>reviewBonusChore(b.dataset.approve,true));
 document.querySelectorAll('[data-decline]').forEach(b=>b.onclick=()=>reviewBonusChore(b.dataset.decline,false));
+document.querySelectorAll('[data-save-task]').forEach(b=>b.onclick=()=>saveEditedTask(b.dataset.saveTask));
 const resetButton=document.getElementById('household-reset');if(resetButton)resetButton.onclick=resetHousehold;
 const scanButton=document.getElementById('scan-now');if(scanButton)scanButton.onclick=refreshMonitor;
 document.querySelectorAll('[data-month]').forEach(x=>x.onclick=()=>{calendarMonth=new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()+Number(x.dataset.month),1);selectedDate=new Date(calendarMonth);render()});
@@ -308,6 +328,14 @@ const firebaseConfig={apiKey:"AIzaSyCfZn2UACHKcDD3OLkm-P5lA8vgTDq42zM",authDomai
 try{
  const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
  let unsub=null,activeWeek='';
+ window.saveTaskOverride=async(id,override)=>{
+ if(!auth.currentUser)throw Error('Not signed in');
+ await setDoc(doc(db,'chores','assignment-'+id),{type:'assignment-override',taskId:id,...override,updatedAt:new Date().toISOString(),updatedBy:currentUser});
+ };
+ onSnapshot(query(collection(db,'chores'),where('type','==','assignment-override')),snapshot=>{
+ const next={};snapshot.forEach(d=>{const v=d.data();if(v.taskId&&/^(dish|laundry|area)\\d+$/.test(v.taskId))next[v.taskId]={person:v.person,name:v.name,day:v.day,days:v.days}});
+ taskOverrides=next;render();
+ },e=>{cloudError='Assignment sync: '+e.message;updateCloudStatus()});
  window.saveBonusRequest=async entry=>{
  if(!auth.currentUser)throw Error('Not signed in');
  await setDoc(doc(collection(db,'chores')),{...entry,type:'bonus-request'});
