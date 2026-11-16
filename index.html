@@ -7,7 +7,7 @@
 .identity-overlay[hidden]{display:none!important}.identity-overlay{position:fixed;inset:0;background:#112c39ee;z-index:10;display:flex;align-items:center;justify-content:center;padding:18px}.identity-panel{background:white;border-radius:20px;padding:25px;width:min(100%,440px);box-sizing:border-box;text-align:center}.identity-panel select{width:100%;font:inherit;padding:12px;margin:12px 0;border:1px solid #a8b9c0;border-radius:10px}.identity-panel button{width:100%;background:#087d78;color:white}.identity-panel button:disabled{opacity:.5}.identity-banner{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;color:#fff}.identity-banner button{font-size:.85rem}
 .identity-banner{color:#173b49!important;background:#e0ebee;border-radius:12px;padding:10px 12px;margin:12px 0}.identity-banner strong{color:#173b49}.identity-banner button{background:#c3dce3;color:#123c51;font-weight:700}nav button{color:#173b49;font-weight:650}nav button.active{color:#fff;background:#087d78}.task-details{display:flex;flex-direction:column;gap:5px;min-width:0;line-height:1.4}.completion-credit{display:block;font-size:.88rem;color:#075d48;font-weight:600;text-decoration:none!important}.completion-credit strong{color:#075d48}.task .done{color:#63717d}.task input{flex-shrink:0;accent-color:#087d78}.card{color:#203044}
 .card select,.card input[type="number"],.card input[type="text"],#bonus-reason{display:block;box-sizing:border-box;width:100%;padding:12px;margin:7px 0 15px;border:1px solid #9caeb8;border-radius:9px;font:inherit}.card label{font-weight:650}#award-bonus{background:#087d78;color:white;font-weight:700}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.1 · Cloud chore sync when connected; device fallback when offline. Review assignments against the handwritten original.</footer>
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.2 · Shared bonus awards and point breakdown · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -138,11 +138,46 @@ const b=document.getElementById('scan-now');if(b)b.onclick=refreshMonitor;
 }}
 setInterval(()=>{if(tab==='Logan Only'&&loganUnlocked&&currentUser==='Logan')refreshMonitor()},30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tab==='Logan Only'&&loganUnlocked&&currentUser==='Logan')refreshMonitor()});
-function score(name){let total=0;for(let i=0;i<localStorage.length;i++){let k=localStorage.key(i);if(!k||!k.startsWith('chore-checks-'))continue;try{let c=JSON.parse(localStorage.getItem(k));for(let [id,v] of Object.entries(c)){if(v&&typeof v==='object'&&v.by===name)total+=id.startsWith('area')?20:id.startsWith('laundry')?15:10}}catch{}}return total+bonusEntries().filter(x=>x.person===name).reduce((n,x)=>n+x.amount,0)}
-function bonusEntries(){try{return JSON.parse(localStorage.getItem('chore-bonus-points')||'[]')}catch{return []}}
-function awardBonus(){if(!managerUnlocked||!pointManagers.includes(currentUser))return;let person=document.getElementById('bonus-person').value,amount=Number(document.getElementById('bonus-amount').value),reason=document.getElementById('bonus-reason').value.trim();if(!members.includes(person)||pointManagers.includes(person)||!Number.isInteger(amount)||amount<1||amount>50||!reason){alert('Choose a recipient, 1–50 points, and a reason.');return}let entries=bonusEntries();entries.push({person,amount,reason,by:currentUser,at:new Date().toISOString()});localStorage.setItem('chore-bonus-points',JSON.stringify(entries));render()}
-function bonusPanel(){let entries=bonusEntries().slice(-10).reverse();return '<div class="card"><h2>🌟 Give extra points</h2><p>For helping out, being kind, or doing extra chores.</p><label>Give points to</label><select id="bonus-person">'+members.filter(n=>!pointManagers.includes(n)).map(n=>'<option value="'+n+'">'+n+'</option>').join('')+'</select><label>Points (1–50)</label><input id="bonus-amount" type="number" min="1" max="50" value="10"><label>Reason</label><input id="bonus-reason" maxlength="120" placeholder="e.g. Helped clean the garage"><button id="award-bonus">Award points</button><h3>Recent bonus awards</h3>'+(entries.length?entries.map(x=>'<p><strong>'+escapeHTML(x.person)+'</strong> +'+x.amount+' ⭐ — '+escapeHTML(x.reason)+' <small>from '+escapeHTML(x.by)+'</small></p>').join(''):'<p>No bonus points awarded yet.</p>')+'</div>'}
-function rewardsView(){let points=score(currentUser);let prizes=[['🎬 Choose movie night',30],['🍦 Pick dessert',50],['🎮 Choose game night',75],['🎉 Pick weekend activity',120]];return '<div class="card"><h2>⭐ '+escapeHTML(currentUser)+'’s chore points</h2><h1>'+points+' points earned</h1><p><small>Dishes: 10 · Laundry: 15 · Cleaning: 20. Points are counted from recorded checkmarks on this device.</small></p></div><div class="card"><h2>🎁 Reward goals</h2>'+prizes.map(p=>'<div class="task"><span><strong>'+p[0]+'</strong> — '+p[1]+' points '+(points>=p[1]?'⭐ Goal reached!':'· '+(p[1]-points)+' to go')+'</span></div>').join('')+'<p><small>Ask an adult to approve earned rewards. Goals do not deduct points.</small></p></div>'+(managerUnlocked&&pointManagers.includes(currentUser)?bonusPanel():'')}
+
+let cloudBonusEntries=null;
+function bonusEntries(){if(cloudBonusEntries!==null)return cloudBonusEntries;try{return JSON.parse(localStorage.getItem('chore-bonus-points')||'[]')}catch{return []}}
+function bonusId(x){return 'bonus_'+[x.at,x.person,x.by,x.amount,x.reason].join('|').split('').reduce((h,c)=>((h*31+c.charCodeAt(0))>>>0),2166136261).toString(36)}
+function pointLedger(name){
+ const ledger=[],all=tasks();
+ for(let i=0;i<localStorage.length;i++){
+  const k=localStorage.key(i);if(!k||!k.startsWith('chore-checks-'))continue;
+  try{const c=JSON.parse(localStorage.getItem(k));for(const [id,v] of Object.entries(c)){
+   if(v&&typeof v==='object'&&v.by===name){
+    const t=all.find(t=>t.id===id),amount=id.startsWith('area')?20:id.startsWith('laundry')?15:10;
+    ledger.push({amount,label:t?t.name:'Chore '+id,detail:t?'Assigned to '+t.person:'Saved chore',at:v.at||''});
+   }
+  }}catch{}
+ }
+ for(const x of bonusEntries().filter(x=>x.person===name)){
+  ledger.push({amount:Number(x.amount)||0,label:x.reason,detail:'Bonus from '+x.by,at:x.at||''});
+ }
+ return ledger.sort((x,y)=>String(y.at).localeCompare(String(x.at)));
+}
+function score(name){return pointLedger(name).reduce((n,x)=>n+x.amount,0)}
+async function awardBonus(){
+ if(!managerUnlocked||!pointManagers.includes(currentUser))return;
+ const person=document.getElementById('bonus-person').value,amount=Number(document.getElementById('bonus-amount').value),reason=document.getElementById('bonus-reason').value.trim();
+ if(!members.includes(person)||pointManagers.includes(person)||!Number.isInteger(amount)||amount<1||amount>50||!reason){alert('Choose a recipient, 1–50 points, and a reason.');return}
+ const entry={person,amount,reason,by:currentUser,at:new Date().toISOString()};
+ const button=document.getElementById('award-bonus');button.disabled=true;button.textContent='Saving…';
+ if(window.saveCloudBonus){
+  try{await window.saveCloudBonus(entry);return}catch(e){alert('Cloud save failed: '+(e.message||e));button.disabled=false;button.textContent='Award points';return}
+ }
+ alert('Cloud is not connected. Please wait for live sync before awarding points.');
+ button.disabled=false;button.textContent='Award points';
+}
+function bonusPanel(){let entries=bonusEntries().slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,10);return '<div class="card"><h2>🌟 Give extra points</h2><p>For helping out, being kind, or doing extra chores.</p><label>Give points to</label><select id="bonus-person">'+members.filter(n=>!pointManagers.includes(n)).map(n=>'<option value="'+n+'">'+n+'</option>').join('')+'</select><label>Points (1–50)</label><input id="bonus-amount" type="number" min="1" max="50" value="10"><label>Reason</label><input id="bonus-reason" maxlength="120" placeholder="e.g. Helped clean the garage"><button id="award-bonus">Award points</button><h3>Recent bonus awards</h3>'+(entries.length?entries.map(x=>'<p><strong>'+escapeHTML(x.person)+'</strong> +'+x.amount+' ⭐ — '+escapeHTML(x.reason)+' <small>from '+escapeHTML(x.by)+'</small></p>').join(''):'<p>No bonus points awarded yet.</p>')+'</div>'}
+function rewardsView(){
+ const ledger=pointLedger(currentUser),points=ledger.reduce((n,x)=>n+x.amount,0);
+ const prizes=[['🎬 Choose movie night',30],['🍦 Pick dessert',50],['🎮 Choose game night',75],['🎉 Pick weekend activity',120]];
+ const details=ledger.length?ledger.map(x=>'<div class="task"><div class="task-details" style="flex:1"><strong>'+escapeHTML(x.label)+'</strong><small>'+escapeHTML(x.detail)+(x.at?' · '+escapeHTML(new Date(x.at).toLocaleString()):'')+'</small></div><strong>+'+x.amount+' ⭐</strong></div>').join(''):'<p>No points recorded yet.</p>';
+ return '<div class="card"><h2>⭐ '+escapeHTML(currentUser)+'’s chore points</h2><h1>'+points+' points earned</h1><p><small>Dishes: 10 · Laundry: 15 · Cleaning: 20 · Bonus: as awarded</small></p></div><div class="card"><h2>📋 Where your points came from</h2>'+details+'<p><small>Chore credits use the recorded person who checked the box. Bonus awards sync through Firestore; older chores may still be stored only on the original device.</small></p></div><div class="card"><h2>🎁 Reward goals</h2>'+prizes.map(p=>'<div class="task"><span><strong>'+p[0]+'</strong> — '+p[1]+' points '+(points>=p[1]?'⭐ Goal reached!':'· '+(p[1]-points)+' to go')+'</span></div>').join('')+'<p><small>Ask an adult to approve earned rewards. Goals do not deduct points.</small></p></div>'+(managerUnlocked&&pointManagers.includes(currentUser)?bonusPanel():'');
+}
 function adminView(all){
 let c=checks(),people=members.map(n=>({name:n,assigned:all.filter(t=>t.person.split(' & ').includes(n)),completed:all.filter(t=>t.person.split(' & ').includes(n)&&c[t.id])}));
 return '<div class="card"><h2>🔒 Logan’s private dashboard</h2><p>Household overview for the current week.</p><p><small>This page is hidden behind a basic PIN screen, but GitHub Pages cannot provide real security for client-side passwords.</small></p></div><div class="card"><h2>Family chore progress</h2>'+people.map(p=>'<div class="task"><span><strong>'+escapeHTML(p.name)+'</strong> — '+p.completed.length+' of '+p.assigned.length+' assignments completed</span></div>').join('')+'</div>'+section('All weekly assignments',all,'No assignments')+'<div id="monitor-area">'+monitorView()+'</div>';
@@ -188,6 +223,19 @@ const firebaseConfig={apiKey:"AIzaSyCfZn2UACHKcDD3OLkm-P5lA8vgTDq42zM",authDomai
 try{
  const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
  let unsub=null,activeWeek='';
+ window.saveCloudBonus=async entry=>{
+   if(!auth.currentUser)throw Error('Not signed in');
+   await setDoc(doc(db,'chores',bonusId(entry)),{type:'bonus',...entry});
+ };
+ onSnapshot(query(collection(db,'chores'),where('type','==','bonus')),snapshot=>{
+   cloudBonusEntries=snapshot.docs.map(d=>d.data());render();
+ },e=>{console.error('Bonus sync failed',e);cloudError='Bonus sync: '+(e.code||e.message);updateCloudStatus()});
+ const prior=(()=>{try{return JSON.parse(localStorage.getItem('chore-bonus-points')||'[]')}catch{return []}})();
+ onAuthStateChanged(auth,async user=>{
+   if(!user)return;
+   for(const entry of prior){try{await setDoc(doc(db,'chores',bonusId(entry)),{type:'bonus',...entry})}catch(e){console.warn('Prior bonus import failed',e)}}
+ });
+
  window.saveCloudChore=async(w,id,entry)=>{
    if(!auth.currentUser)throw Error('Not signed in');
    await setDoc(doc(db,'chores',w+'_'+id),{week:w,taskId:id,checked:!!entry,by:entry?.by||'',at:entry?.at||'',updatedAt:new Date().toISOString()},{merge:true});
