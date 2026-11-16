@@ -7,7 +7,7 @@
 .identity-overlay[hidden]{display:none!important}.identity-overlay{position:fixed;inset:0;background:#112c39ee;z-index:10;display:flex;align-items:center;justify-content:center;padding:18px}.identity-panel{background:white;border-radius:20px;padding:25px;width:min(100%,440px);box-sizing:border-box;text-align:center}.identity-panel select{width:100%;font:inherit;padding:12px;margin:12px 0;border:1px solid #a8b9c0;border-radius:10px}.identity-panel button{width:100%;background:#087d78;color:white}.identity-panel button:disabled{opacity:.5}.identity-banner{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;color:#fff}.identity-banner button{font-size:.85rem}
 .identity-banner{color:#173b49!important;background:#e0ebee;border-radius:12px;padding:10px 12px;margin:12px 0}.identity-banner strong{color:#173b49}.identity-banner button{background:#c3dce3;color:#123c51;font-weight:700}nav button{color:#173b49;font-weight:650}nav button.active{color:#fff;background:#087d78}.task-details{display:flex;flex-direction:column;gap:5px;min-width:0;line-height:1.4}.completion-credit{display:block;font-size:.88rem;color:#075d48;font-weight:600;text-decoration:none!important}.completion-credit strong{color:#075d48}.task .done{color:#63717d}.task input{flex-shrink:0;accent-color:#087d78}.card{color:#203044}
 .card select,.card input[type="number"],.card input[type="text"],#bonus-reason{display:block;box-sizing:border-box;width:100%;padding:12px;margin:7px 0 15px;border:1px solid #9caeb8;border-radius:9px;font:inherit}.card label{font-weight:650}#award-bonus{background:#087d78;color:white;font-weight:700}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.2 · Shared bonus awards and point breakdown · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.3 · Shared point transfers and adult adjustments · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -156,9 +156,32 @@ function pointLedger(name){
  for(const x of bonusEntries().filter(x=>x.person===name)){
   ledger.push({amount:Number(x.amount)||0,label:x.reason,detail:'Bonus from '+x.by,at:x.at||''});
  }
+ for(const x of pointMovements){
+ if(x.from===name)ledger.push({amount:-x.amount,label:x.kind==='transfer'?'Sent to '+x.to:'Adult deduction',detail:x.reason+' · by '+x.by,at:x.at});
+ if(x.kind==='transfer'&&x.to===name)ledger.push({amount:x.amount,label:'Received from '+x.from,detail:x.reason+' · by '+x.by,at:x.at});
+ }
  return ledger.sort((x,y)=>String(y.at).localeCompare(String(x.at)));
 }
+let pointMovements=[];
 function score(name){return pointLedger(name).reduce((n,x)=>n+x.amount,0)}
+async function movePoints(kind){
+ const recipient=document.getElementById(kind+'-person').value,amount=Number(document.getElementById(kind+'-amount').value),reason=document.getElementById(kind+'-reason').value.trim();
+ if(!members.includes(recipient)||!Number.isInteger(amount)||amount<1||amount>50||!reason){alert('Select a person, 1–50 points, and a reason.');return}
+ if(kind==='transfer'&&recipient===currentUser){alert('Choose another person.');return}
+ if(kind==='adjust'&&(!managerUnlocked||!pointManagers.includes(currentUser))){alert('Adult approval required.');return}
+ const owner=kind==='transfer'?currentUser:recipient;
+ if(score(owner)<amount){alert('Insufficient points. Available: '+score(owner));return}
+ if(!window.savePointMovement){alert('Cloud sync is not ready.');return}
+ const button=document.getElementById(kind+'-submit');button.disabled=true;
+ try{await window.savePointMovement({kind,from:owner,to:kind==='transfer'?recipient:'',amount,reason,by:currentUser,at:new Date().toISOString()})}
+ catch(e){alert('Save failed: '+e.message);button.disabled=false}
+}
+function pointsControls(){
+ const options=names=>names.map(n=>'<option value="'+n+'">'+n+'</option>').join('');
+ const transfer='<div class="card"><h2>↔️ Transfer points</h2><p>Send points from your balance to someone else.</p><label>Recipient</label><select id="transfer-person">'+options(members.filter(n=>n!==currentUser))+'</select><label>Amount</label><input id="transfer-amount" type="number" min="1" max="50" value="5"><label>Reason</label><input id="transfer-reason" placeholder="Reason" maxlength="120"><button id="transfer-submit">Transfer points</button></div>';
+ const adjust=managerUnlocked&&pointManagers.includes(currentUser)?'<div class="card"><h2>⚖️ Adult point adjustment</h2><p>Logan, Natalie, and Myk can deduct points for behavior. The reason and adult name are recorded.</p><label>Person</label><select id="adjust-person">'+options(members.filter(n=>!pointManagers.includes(n)))+'</select><label>Amount to deduct</label><input id="adjust-amount" type="number" min="1" max="50" value="5"><label>Reason</label><input id="adjust-reason" placeholder="Behavior and reason" maxlength="120"><button id="adjust-submit">Deduct points</button></div>':'';
+ return transfer+adjust;
+}
 async function awardBonus(){
  if(!managerUnlocked||!pointManagers.includes(currentUser))return;
  const person=document.getElementById('bonus-person').value,amount=Number(document.getElementById('bonus-amount').value),reason=document.getElementById('bonus-reason').value.trim();
@@ -176,7 +199,7 @@ function rewardsView(){
  const ledger=pointLedger(currentUser),points=ledger.reduce((n,x)=>n+x.amount,0);
  const prizes=[['🎬 Choose movie night',30],['🍦 Pick dessert',50],['🎮 Choose game night',75],['🎉 Pick weekend activity',120]];
  const details=ledger.length?ledger.map(x=>'<div class="task"><div class="task-details" style="flex:1"><strong>'+escapeHTML(x.label)+'</strong><small>'+escapeHTML(x.detail)+(x.at?' · '+escapeHTML(new Date(x.at).toLocaleString()):'')+'</small></div><strong>+'+x.amount+' ⭐</strong></div>').join(''):'<p>No points recorded yet.</p>';
- return '<div class="card"><h2>⭐ '+escapeHTML(currentUser)+'’s chore points</h2><h1>'+points+' points earned</h1><p><small>Dishes: 10 · Laundry: 15 · Cleaning: 20 · Bonus: as awarded</small></p></div><div class="card"><h2>📋 Where your points came from</h2>'+details+'<p><small>Chore credits use the recorded person who checked the box. Bonus awards sync through Firestore; older chores may still be stored only on the original device.</small></p></div><div class="card"><h2>🎁 Reward goals</h2>'+prizes.map(p=>'<div class="task"><span><strong>'+p[0]+'</strong> — '+p[1]+' points '+(points>=p[1]?'⭐ Goal reached!':'· '+(p[1]-points)+' to go')+'</span></div>').join('')+'<p><small>Ask an adult to approve earned rewards. Goals do not deduct points.</small></p></div>'+(managerUnlocked&&pointManagers.includes(currentUser)?bonusPanel():'');
+ return '<div class="card"><h2>⭐ '+escapeHTML(currentUser)+'’s chore points</h2><h1>'+points+' points earned</h1><p><small>Dishes: 10 · Laundry: 15 · Cleaning: 20 · Bonus: as awarded</small></p></div><div class="card"><h2>📋 Where your points came from</h2>'+details+'<p><small>Chore credits use the recorded person who checked the box. Bonus awards sync through Firestore; older chores may still be stored only on the original device.</small></p></div><div class="card"><h2>🎁 Reward goals</h2>'+prizes.map(p=>'<div class="task"><span><strong>'+p[0]+'</strong> — '+p[1]+' points '+(points>=p[1]?'⭐ Goal reached!':'· '+(p[1]-points)+' to go')+'</span></div>').join('')+'<p><small>Ask an adult to approve earned rewards. Goals do not deduct points.</small></p></div>'+(managerUnlocked&&pointManagers.includes(currentUser)?bonusPanel():'')+pointsControls();
 }
 function adminView(all){
 let c=checks(),people=members.map(n=>({name:n,assigned:all.filter(t=>t.person.split(' & ').includes(n)),completed:all.filter(t=>t.person.split(' & ').includes(n)&&c[t.id])}));
@@ -207,7 +230,7 @@ html+=section(tab==='Progress'?'All weekly chores':'Assignments',filtered,'No ch
 }
 document.getElementById('content').innerHTML=html;
 document.querySelectorAll('[data-id]').forEach(x=>x.onchange=()=>mark(x.dataset.id,x.checked));
-const bonusButton=document.getElementById('award-bonus');if(bonusButton)bonusButton.onclick=awardBonus;
+const bonusButton=document.getElementById('award-bonus');if(bonusButton)bonusButton.onclick=awardBonus;for(const kind of ['transfer','adjust']){const b=document.getElementById(kind+'-submit');if(b)b.onclick=()=>movePoints(kind)}
 const scanButton=document.getElementById('scan-now');if(scanButton)scanButton.onclick=refreshMonitor;
 document.querySelectorAll('[data-month]').forEach(x=>x.onclick=()=>{calendarMonth=new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()+Number(x.dataset.month),1);selectedDate=new Date(calendarMonth);render()});
 document.querySelectorAll('[data-date]').forEach(x=>x.onclick=()=>{let [y,m,d]=x.dataset.date.split('-').map(Number);selectedDate=new Date(y,m-1,d);render()});
@@ -223,6 +246,13 @@ const firebaseConfig={apiKey:"AIzaSyCfZn2UACHKcDD3OLkm-P5lA8vgTDq42zM",authDomai
 try{
  const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
  let unsub=null,activeWeek='';
+ window.savePointMovement=async entry=>{
+ if(!auth.currentUser)throw Error('Not signed in');
+ await setDoc(doc(collection(db,'chores')),{...entry,type:'point-movement'});
+ };
+ onSnapshot(query(collection(db,'chores'),where('type','==','point-movement')),snapshot=>{
+ pointMovements=snapshot.docs.map(d=>d.data());render();
+ },e=>{cloudError='Point history: '+e.message;updateCloudStatus()});
  window.saveCloudBonus=async entry=>{
    if(!auth.currentUser)throw Error('Not signed in');
    await setDoc(doc(db,'chores',bonusId(entry)),{type:'bonus',...entry});
