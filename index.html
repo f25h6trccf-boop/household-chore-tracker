@@ -8,7 +8,8 @@
 .identity-banner{color:#173b49!important;background:#e0ebee;border-radius:12px;padding:10px 12px;margin:12px 0}.identity-banner strong{color:#173b49}.identity-banner button{background:#c3dce3;color:#123c51;font-weight:700}nav button{color:#173b49;font-weight:650}nav button.active{color:#fff;background:#087d78}.task-details{display:flex;flex-direction:column;gap:5px;min-width:0;line-height:1.4}.completion-credit{display:block;font-size:.88rem;color:#075d48;font-weight:600;text-decoration:none!important}.completion-credit strong{color:#075d48}.task .done{color:#63717d}.task input{flex-shrink:0;accent-color:#087d78}.card{color:#203044}
 .card select,.card input[type="number"],.card input[type="text"],#bonus-reason{display:block;box-sizing:border-box;width:100%;padding:12px;margin:7px 0 15px;border:1px solid #9caeb8;border-radius:9px;font:inherit}.card label{font-weight:650}#award-bonus{background:#087d78;color:white;font-weight:700}
 .point-form .point-field{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:20px 0}.point-form .point-field label{display:block;font-weight:700;margin:0}.point-form .point-field input,.point-form .point-field select{display:block;width:100%;min-width:0;box-sizing:border-box;padding:12px;border:1px solid #a8b9c0;border-radius:10px;font:inherit;background:#fff;color:#203045}.point-form .point-field select{background:#e9edf0}.point-form button{display:inline-block;margin-top:8px}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.5 · Logan-only household reset controls · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+.admin-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.admin-stats>div{background:#eaf4f3;border-radius:12px;padding:12px;text-align:center}.admin-stats strong{display:block;font-size:1.4rem}.admin-stats small{display:block}.approval-item{padding:14px 0;border-bottom:1px solid #ddd}.approval-actions{display:flex;gap:8px;margin-top:9px}.primary-action{background:#087d78;color:white;font-weight:700}
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.6 · Parent verification and extra chores · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -34,7 +35,7 @@ const members=['Logan','Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Trystan','M
 let currentUser=localStorage.getItem('chore-current-user')||'';
 let loganUnlocked=false;
 const pointManagers=['Logan','Myk','Natalie'];let managerUnlocked=false;
-let tab='Today';const tabs=['Today','Calendar','Dishes','Laundry','Cleaning','Progress','Rewards'];
+let tab='Today';const tabs=['Today','Calendar','Dishes','Laundry','Cleaning','Bonus Chores','Progress','Rewards'];
 let calendarMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1),selectedDate=new Date();
 function week(d=new Date()){let s=new Date(d.getFullYear(),d.getMonth(),d.getDate());s.setDate(s.getDate()-s.getDay());return dateKey(s)}
 function laundryDays(i){return i===0?['Friday','Saturday']:i===1?['Saturday','Sunday']:[['Friday','Saturday'],['Saturday','Sunday'],['Monday'],['Friday'],['Tuesday'],['Thursday'],['Wednesday']][i]}
@@ -140,6 +141,29 @@ const b=document.getElementById('scan-now');if(b)b.onclick=refreshMonitor;
 setInterval(()=>{if(tab==='Logan Only'&&loganUnlocked&&currentUser==='Logan')refreshMonitor()},30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tab==='Logan Only'&&loganUnlocked&&currentUser==='Logan')refreshMonitor()});
 
+const bonusCatalog=[['Wash the dogs',25],['Walk the dogs',15],['Clean windows',20],['Clean the car',25],['Vacuum the car',20],['Pick up the yard',15],['Take out extra trash',10],['Help with groceries',10]];
+let bonusRequests=[],bonusNotice='';
+function bonusChoresView(){
+ const mine=bonusRequests.filter(x=>x.person===currentUser).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+ return '<div class="card"><h2>🐾 Extra bonus chores</h2><p>Do an extra chore and request parent approval. Points are added only after approval.</p><label>Choose chore</label><select id="extra-chore">'+bonusCatalog.map((x,i)=>'<option value="'+i+'">'+escapeHTML(x[0])+' — '+x[1]+' ⭐</option>').join('')+'</select><label>Note (optional)</label><input type="text" id="extra-note" maxlength="120" placeholder="What did you do?"><button id="extra-submit" class="primary-action">Request approval</button>'+(bonusNotice?'<p role="status">'+escapeHTML(bonusNotice)+'</p>':'')+'</div><div class="card"><h2>My bonus requests</h2>'+(mine.length?mine.map(x=>'<div class="task"><span><strong>'+escapeHTML(x.chore)+'</strong> · '+x.amount+' ⭐<br><small>'+escapeHTML(x.status==='approved'?'Approved by '+x.reviewedBy:x.status==='rejected'?'Declined by '+x.reviewedBy:'Awaiting parent approval')+'</small></span></div>').join(''):'<p>No requests yet.</p>')+'</div>';
+}
+async function submitBonusChore(){
+ const item=bonusCatalog[Number(document.getElementById('extra-chore').value)],note=document.getElementById('extra-note').value.trim();
+ if(!item||!window.saveBonusRequest){alert('Cloud sync is not ready.');return}
+ const b=document.getElementById('extra-submit');b.disabled=true;b.textContent='Sending…';
+ try{await window.saveBonusRequest({person:currentUser,chore:item[0],amount:item[1],note,status:'pending',at:new Date().toISOString()});bonusNotice='Request sent for parent approval.';render()}
+ catch(e){alert('Request failed: '+e.message);b.disabled=false;b.textContent='Request approval'}
+}
+async function reviewBonusChore(id,approve){
+ if(!managerUnlocked||!pointManagers.includes(currentUser)||!window.reviewBonusRequest)return;
+ const req=bonusRequests.find(x=>x.id===id);if(!req||req.status!=='pending')return;
+ if(!confirm((approve?'Approve ':'Decline ')+req.chore+' for '+req.person+'?'))return;
+ try{await window.reviewBonusRequest(id,approve,currentUser);render()}catch(e){alert('Review failed: '+e.message)}
+}
+function approvalPanel(){
+ const pending=bonusRequests.filter(x=>x.status==='pending').sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+ return '<div class="card"><h2>🛡️ Parent verification</h2><p><strong>'+pending.length+' pending requests</strong> · Approve only after checking the work.</p>'+(pending.length?pending.map(x=>'<div class="approval-item"><strong>'+escapeHTML(x.person)+'</strong> — '+escapeHTML(x.chore)+' · '+x.amount+' ⭐<br><small>'+escapeHTML(x.note||'No note')+'</small><div class="approval-actions"><button data-approve="'+escapeHTML(x.id)+'" class="primary-action">Approve</button><button data-decline="'+escapeHTML(x.id)+'">Decline</button></div></div>').join(''):'<p>No requests awaiting approval.</p>')+'</div>';
+}
 let cloudBonusEntries=null;
 function bonusEntries(){if(cloudBonusEntries!==null)return cloudBonusEntries;try{return JSON.parse(localStorage.getItem('chore-bonus-points')||'[]')}catch{return []}}
 function bonusId(x){return 'bonus_'+[x.at,x.person,x.by,x.amount,x.reason].join('|').split('').reduce((h,c)=>((h*31+c.charCodeAt(0))>>>0),2166136261).toString(36)}
@@ -157,6 +181,7 @@ function pointLedger(name){
  for(const x of bonusEntries().filter(x=>x.person===name&&afterReset(x.at,pointResetAt))){
   ledger.push({amount:Number(x.amount)||0,label:x.reason,detail:'Bonus from '+x.by,at:x.at||''});
  }
+ for(const x of bonusRequests.filter(x=>x.person===name&&x.status==='approved'&&afterReset(x.reviewedAt||x.at,pointResetAt)))ledger.push({amount:Number(x.amount)||0,label:x.chore,detail:'Approved by '+x.reviewedBy,at:x.reviewedAt||x.at});
  for(const x of pointMovements.filter(x=>afterReset(x.at,pointResetAt))){
  if(x.from===name)ledger.push({amount:-x.amount,label:x.kind==='transfer'?'Sent to '+x.to:'Adult deduction',detail:x.reason+' · by '+x.by,at:x.at});
  if(x.kind==='transfer'&&x.to===name)ledger.push({amount:x.amount,label:'Received from '+x.from,detail:x.reason+' · by '+x.by,at:x.at});
@@ -229,7 +254,7 @@ function rewardsView(){
 }
 function adminView(all){
 let c=checks(),people=members.map(n=>({name:n,assigned:all.filter(t=>t.person.split(' & ').includes(n)),completed:all.filter(t=>t.person.split(' & ').includes(n)&&c[t.id])}));
-return '<div class="card"><h2>🔒 Logan’s private dashboard</h2><p>Household overview for the current week.</p><p><small>This page is hidden behind a basic PIN screen, but GitHub Pages cannot provide real security for client-side passwords.</small></p></div><div class="card"><h2>Family chore progress</h2>'+people.map(p=>'<div class="task"><span><strong>'+escapeHTML(p.name)+'</strong> — '+p.completed.length+' of '+p.assigned.length+' assignments completed</span></div>').join('')+'</div>'+section('All weekly assignments',all,'No assignments')+'<div id="monitor-area">'+monitorView()+'</div>'+resetPanel();
+return '<div class="card"><h2>📊 Logan’s command center</h2><div class="admin-stats"><div><strong>'+all.filter(t=>c[t.id]).length+'/'+all.length+'</strong><small>Completed</small></div><div><strong>'+bonusRequests.filter(x=>x.status==='pending').length+'</strong><small>To approve</small></div><div><strong>'+members.length+'</strong><small>Members</small></div></div></div>'+approvalPanel()+'<div class="card"><h2>🔒 Logan’s private dashboard</h2><p>Household overview for the current week.</p><p><small>This page is hidden behind a basic PIN screen, but GitHub Pages cannot provide real security for client-side passwords.</small></p></div><div class="card"><h2>Family chore progress</h2>'+people.map(p=>'<div class="task"><span><strong>'+escapeHTML(p.name)+'</strong> — '+p.completed.length+' of '+p.assigned.length+' assignments completed</span></div>').join('')+'</div>'+section('All weekly assignments',all,'No assignments')+'<div id="monitor-area">'+monitorView()+'</div>'+resetPanel();
 }
 function render(){
 document.getElementById('identity-banner').innerHTML='<span>👤 Viewing as <strong>'+escapeHTML(currentUser)+'</strong></span><button id="switch-member">Switch name</button>';
@@ -241,7 +266,7 @@ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.
 let all=tasks(),now=new Date(),dayIndex=now.getDay(),today=days[dayIndex],c=checks(),done=all.filter(t=>c[t.id]).length;
 let summary='<div class="card"><h2>'+(tab==='Today'?today+' · Your chore dashboard':tab==='Progress'?'Weekly progress':tab)+'</h2><p><strong>'+done+' / '+all.length+'</strong> chores completed this week</p><progress value="'+done+'" max="'+all.length+'" style="width:100%"></progress><p><small>Week beginning '+week()+' · Weekly deadline: Saturday</small></p></div>';
 let html='<p id="sync-status" role="status" style="padding:4px 10px;color:#365a64">'+escapeHTML(cloudStatus())+'</p>'+summary;
-if(tab==='Logan Only'&&currentUser==='Logan'&&loganUnlocked){html=adminView(all)}else if(tab==='Rewards'){html=rewardsView()}else if(tab==='Calendar'){html=calendarView(all)}else if(tab==='Today'){
+if(tab==='Logan Only'&&currentUser==='Logan'&&loganUnlocked){html=adminView(all)}else if(tab==='Rewards'){html=rewardsView()}else if(tab==='Bonus Chores'){html=bonusChoresView()}else if(tab==='Calendar'){html=calendarView(all)}else if(tab==='Today'){
 let due=all.filter(t=>taskDays(t).includes(today));
 let upcoming=all.filter(t=>t.id.startsWith('laundry')&&taskDays(t).some(d=>days.indexOf(d)>dayIndex)&&!c[t.id]);
 let overdue=all.filter(t=>taskDays(t).length&&taskDays(t).every(d=>days.indexOf(d)<dayIndex)&&!c[t.id]);
@@ -257,6 +282,9 @@ html+=section(tab==='Progress'?'All weekly chores':'Assignments',filtered,'No ch
 document.getElementById('content').innerHTML=html;
 document.querySelectorAll('[data-id]').forEach(x=>x.onchange=()=>mark(x.dataset.id,x.checked));
 const bonusButton=document.getElementById('award-bonus');if(bonusButton)bonusButton.onclick=awardBonus;for(const kind of ['transfer','adjust']){const b=document.getElementById(kind+'-submit');if(b)b.onclick=()=>movePoints(kind)}
+const extraButton=document.getElementById('extra-submit');if(extraButton)extraButton.onclick=submitBonusChore;
+document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>reviewBonusChore(b.dataset.approve,true));
+document.querySelectorAll('[data-decline]').forEach(b=>b.onclick=()=>reviewBonusChore(b.dataset.decline,false));
 const resetButton=document.getElementById('household-reset');if(resetButton)resetButton.onclick=resetHousehold;
 const scanButton=document.getElementById('scan-now');if(scanButton)scanButton.onclick=refreshMonitor;
 document.querySelectorAll('[data-month]').forEach(x=>x.onclick=()=>{calendarMonth=new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()+Number(x.dataset.month),1);selectedDate=new Date(calendarMonth);render()});
@@ -273,6 +301,18 @@ const firebaseConfig={apiKey:"AIzaSyCfZn2UACHKcDD3OLkm-P5lA8vgTDq42zM",authDomai
 try{
  const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
  let unsub=null,activeWeek='';
+ window.saveBonusRequest=async entry=>{
+ if(!auth.currentUser)throw Error('Not signed in');
+ await setDoc(doc(collection(db,'chores')),{...entry,type:'bonus-request'});
+ };
+ window.reviewBonusRequest=async(id,approve,reviewer)=>{
+ if(!auth.currentUser)throw Error('Not signed in');
+ const req=bonusRequests.find(x=>x.id===id);if(!req||req.status!=='pending')throw Error('Already reviewed');
+ await setDoc(doc(db,'chores',id),{status:approve?'approved':'rejected',reviewedBy:reviewer,reviewedAt:new Date().toISOString()},{merge:true});
+ };
+ onSnapshot(query(collection(db,'chores'),where('type','==','bonus-request')),snapshot=>{
+ bonusRequests=snapshot.docs.map(d=>({id:d.id,...d.data()}));render();
+ },e=>{cloudError='Bonus approvals: '+e.message;updateCloudStatus()});
  window.saveHouseholdReset=async(clearPoints,clearTasks)=>{
  if(!auth.currentUser)throw Error('Not signed in');
  const now=new Date().toISOString();
