@@ -11,7 +11,7 @@
 .admin-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.admin-stats>div{background:#eaf4f3;border-radius:12px;padding:12px;text-align:center}.admin-stats strong{display:block;font-size:1.4rem}.admin-stats small{display:block}.approval-item{padding:14px 0;border-bottom:1px solid #ddd}.approval-actions{display:flex;gap:8px;margin-top:9px}.primary-action{background:#087d78;color:white;font-weight:700}
 .edit-task{border-bottom:1px solid #d9e2e7;padding:14px 0}.edit-task summary{cursor:pointer;line-height:1.5}.edit-task label{display:block;margin-top:14px}.edit-task button{margin-top:8px}
 .member-picker{border:1px solid #d2dfe3;border-radius:10px;margin-top:14px;padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.member-picker legend{font-weight:700;padding:0 6px}.member-picker .member-choice{display:flex;align-items:center;gap:8px;margin:0;padding:8px;border-radius:8px;background:#edf4f5;font-weight:500}.member-choice input{width:19px;height:19px;accent-color:#087d78;flex-shrink:0}@media(max-width:350px){.member-picker{grid-template-columns:1fr}}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 3.4 · Personal task views and Evyn · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 3.5 · Expandable cleaning checklists · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -71,6 +71,15 @@ function taskHTML(t,d=new Date()){
 let c=checks(d),entry=c[t.id];if(entry&&!afterReset(entry.at,taskResetAt))entry=null;let who=entry&&typeof entry==='object'&&entry.by?entry.by:'Not recorded (older checkmark)';
 let when=entry&&typeof entry==='object'&&entry.at?new Date(entry.at).toLocaleString():'';
 return '<label class="task"><input type="checkbox" data-id="'+t.id+'" '+(entry?'checked':'')+'><span class="task-details"><span class="'+(entry?'done':'')+'"><strong>'+escapeHTML(t.person)+'</strong> — '+escapeHTML(t.name)+(t.day?' <small>('+escapeHTML(taskDays(t).join(' / '))+')</small>':'')+'</span>'+(entry?'<span class="completion-credit">✓ Checked off by <strong>'+escapeHTML(who)+'</strong>'+(when?' · '+escapeHTML(when):'')+'</span>':'')+'</span></label>';
+}
+const expandedCleaningGroups=new Set();
+function cleaningSection(title,items,empty,d=new Date()){
+ const groups=new Map(),c=checks(d);
+ for(const t of items){if(!groups.has(t.person))groups.set(t.person,[]);groups.get(t.person).push(t)}
+ return '<div class="card"><h2>'+title+'</h2>'+(items.length?[...groups].map(([person,chores])=>{
+ const completed=chores.filter(t=>!!c[t.id]).length,groupKey=person;
+ return '<details class="cleaning-group" data-cleaning-group="'+escapeHTML(groupKey)+'" '+(expandedCleaningGroups.has(groupKey)?'open':'')+' style="border-bottom:1px solid #d8dee2;padding:12px 0"><summary style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:700"><span>'+escapeHTML(person)+'</span><span style="white-space:nowrap;font-size:.9em">'+completed+'/'+chores.length+' complete '+(completed===chores.length?'✅':'')+'</span></summary><div style="padding:10px 0 0 8px">'+chores.map(t=>taskHTML(t,d)).join('')+'</div></details>';
+ }).join(''):'<p><small>'+empty+'</small></p>')+'</div>'
 }
 function section(title,items,empty,d=new Date()){return '<div class="card"><h2>'+title+'</h2>'+(items.length?items.map(t=>taskHTML(t,d)).join(''):'<p><small>'+empty+'</small></p>')+'</div>'}
 function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -307,13 +316,14 @@ let weekly=all.filter(t=>t.id.startsWith('area')&&!c[t.id]);
 html+=section('📌 Due today',due,'No scheduled dishes or laundry today');
 html+=section('🧺 Upcoming laundry this week',upcoming,'No more scheduled laundry this week');
 html+=section('⚠️ Earlier scheduled chores still unfinished',overdue,'Nothing overdue');
-html+=section('🧹 Cleaning due by Saturday',weekly,'All weekly cleaning assignments completed');
+html+=cleaningSection('🧹 Cleaning due by Saturday',weekly,'All weekly cleaning assignments completed');
 }else{
 let filtered=tab==='Dishes'?all.filter(t=>t.id.startsWith('dish')):tab==='Laundry'?all.filter(t=>t.id.startsWith('laundry')):tab==='Cleaning'?all.filter(t=>t.id.startsWith('area')):all;
-html+=section(tab==='Progress'?'All weekly chores':'Assignments',filtered,'No chores');
+html+=(tab==='Cleaning'?cleaningSection('Assignments',filtered,'No chores'):section(tab==='Progress'?'All weekly chores':'Assignments',filtered,'No chores'));
 }
 document.getElementById('content').innerHTML=html;
 document.querySelectorAll('[data-id]').forEach(x=>x.onchange=()=>mark(x.dataset.id,x.checked));
+document.querySelectorAll('[data-cleaning-group]').forEach(el=>el.addEventListener('toggle',()=>{const k=el.dataset.cleaningGroup;if(el.open)expandedCleaningGroups.add(k);else expandedCleaningGroups.delete(k)}));
 const bonusButton=document.getElementById('award-bonus');if(bonusButton)bonusButton.onclick=awardBonus;for(const kind of ['transfer','adjust']){const b=document.getElementById(kind+'-submit');if(b)b.onclick=()=>movePoints(kind)}
 const extraSelect=document.getElementById('extra-chore');
 if(extraSelect){const toggleOther=()=>{const panel=document.getElementById('other-bonus-fields');if(panel)panel.style.display=bonusCatalog[Number(extraSelect.value)]?.[0]==='Other'?'block':'none'};extraSelect.onchange=toggleOther;toggleOther()}
