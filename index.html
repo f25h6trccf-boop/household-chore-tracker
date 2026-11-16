@@ -1,1 +1,45 @@
-
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Household Chore Tracker</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#203044;background:#f4f7fb}body{margin:0}header{background:#173b49;color:white;padding:25px 18px}header h1{margin:0}main{max-width:850px;margin:auto;padding:16px}.card{background:white;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 2px 12px #1232}nav{display:flex;gap:8px;flex-wrap:wrap}button,input{font:inherit}button{border:0;border-radius:9px;padding:10px 13px;background:#dce9ee;cursor:pointer}.active{background:#087d78;color:white}.task{display:flex;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid #ddd}.task input{width:20px;height:20px}small{color:#526678}.done{text-decoration:line-through;color:#70818a}footer{padding:15px;text-align:center}
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><main><nav id="tabs"></nav><section id="content"></section></main><footer>Progress is saved on this device. Review assignments against the handwritten original.</footer>
+<script>
+const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
+const laundry=[
+['Myk','Friday night / Saturday morning; one load of towels'],
+['Natalie','Saturday afternoon / Sunday; Sunday linens'],
+['Kaedyn','Monday; linens and one load of towels'],
+['Trystan','Friday morning / day'],
+['Wyatt','Tuesday; one load of towels and mats'],
+['Smalls','Thursday; dog stuff'],
+['Greyson','Wednesday; one load of towels']
+];
+const areas=[
+['Kaedyn & Wyatt','Bedroom, office, hallway, downstairs bathroom'],
+['Rhyan','Back room / family room; room (Smalls)'],
+['Trystan','Garage, recycling, bedroom (other handwriting unclear)'],
+['Greyson','Bedroom, upstairs bathroom, hallway, downstairs side bathroom'],
+['Rhyan & Logan','Dining room'],
+['Myk','Kitchen, garage, outside deck'],
+['Natalie','Bathroom, laundry, hall, mud room']
+];
+let tab='Today';const tabs=['Today','Dishes','Laundry','Cleaning','Progress'];
+function week(){let d=new Date(),s=new Date(d);s.setDate(d.getDate()-d.getDay());return s.toLocaleDateString('en-CA')}
+function tasks(){return [
+...days.map((day,i)=>({id:'dish'+i,day,person:dishes[i],name:'Wash dishes'})),
+...laundry.map(([person,name],i)=>({id:'laundry'+i,person,name,day:name.match(/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/)?.[0]||''})),
+...areas.map(([person,name],i)=>({id:'area'+i,person,name,day:''}))
+]}
+const key=()=> 'chore-checks-'+week();
+function checks(){try{return JSON.parse(localStorage.getItem(key())||'{}')}catch{return {}}}
+function mark(id,v){let c=checks();c[id]=v;localStorage.setItem(key(),JSON.stringify(c));render()}
+function render(){document.getElementById('tabs').innerHTML=tabs.map(t=>'<button class="'+(tab===t?'active':'')+'" data-tab="'+t+'">'+t+'</button>').join('');document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
+let all=tasks(),today=days[new Date().getDay()],filtered=tab==='Today'?all.filter(t=>t.day===today):tab==='Dishes'?all.filter(t=>t.id.startsWith('dish')):tab==='Laundry'?all.filter(t=>t.id.startsWith('laundry')):tab==='Cleaning'?all.filter(t=>t.id.startsWith('area')):all;
+let c=checks(),done=all.filter(t=>c[t.id]).length;
+document.getElementById('content').innerHTML='<div class="card"><h2>'+(tab==='Today'?today+' chores':tab==='Progress'?'Weekly progress':tab)+'</h2><p><strong>'+done+' / '+all.length+'</strong> chores completed this week</p><progress value="'+done+'" max="'+all.length+'" style="width:100%"></progress><small>Week beginning '+week()+'</small></div><div class="card">'+(filtered.length?filtered.map(t=>'<label class="task"><input type="checkbox" data-id="'+t.id+'" '+(c[t.id]?'checked':'')+'><span class="'+(c[t.id]?'done':'')+'"><strong>'+escapeHTML(t.person)+'</strong> — '+escapeHTML(t.name)+(t.day?' <small>('+escapeHTML(t.day)+')</small>':'')+'</span></label>').join(''):'No chores scheduled today')+'</div>';
+document.querySelectorAll('[data-id]').forEach(x=>x.onchange=()=>mark(x.dataset.id,x.checked))}
+function escapeHTML(s){return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+render();
+</script></html>
