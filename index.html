@@ -11,7 +11,7 @@
 .admin-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.admin-stats>div{background:#eaf4f3;border-radius:12px;padding:12px;text-align:center}.admin-stats strong{display:block;font-size:1.4rem}.admin-stats small{display:block}.approval-item{padding:14px 0;border-bottom:1px solid #ddd}.approval-actions{display:flex;gap:8px;margin-top:9px}.primary-action{background:#087d78;color:white;font-weight:700}
 .edit-task{border-bottom:1px solid #d9e2e7;padding:14px 0}.edit-task summary{cursor:pointer;line-height:1.5}.edit-task label{display:block;margin-top:14px}.edit-task button{margin-top:8px}
 .member-picker{border:1px solid #d2dfe3;border-radius:10px;margin-top:14px;padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.member-picker legend{font-weight:700;padding:0 6px}.member-picker .member-choice{display:flex;align-items:center;gap:8px;margin:0;padding:8px;border-radius:8px;background:#edf4f5;font-weight:500}.member-choice input{width:19px;height:19px;accent-color:#087d78;flex-shrink:0}@media(max-width:350px){.member-picker{grid-template-columns:1fr}}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 3.2 · Bonus history clears with point reset · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 3.3 · Other bonus chores and individual cleaning checkboxes · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -46,7 +46,7 @@ let taskOverrides={};
 function tasks(){return [
 ...days.map((day,i)=>({id:'dish'+i,day,person:dishes[i],name:'Wash dishes'})),
 ...laundry.map(([person,name],i)=>({id:'laundry'+i,person,name,day:laundryDays(i)[0],days:laundryDays(i)})),
-...areas.map(([person,name],i)=>({id:'area'+i,person,name,day:''}))
+...areas.flatMap(([person,name],i)=>name.split(/,|;/).map((part,j)=>({id:'area'+i+(j?'_'+j:''),person,name:part.trim(),day:''})))
 ].map(t=>({...t,...(taskOverrides[t.id]||{})}))}
 const key=(d=new Date())=>'chore-checks-'+week(d);
 const cloudWeeks={};let cloudReady=false,cloudError='';
@@ -147,17 +147,19 @@ const b=document.getElementById('scan-now');if(b)b.onclick=refreshMonitor;
 setInterval(()=>{if(tab==='Logan Only'&&loganUnlocked&&currentUser==='Logan')refreshMonitor()},30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tab==='Logan Only'&&loganUnlocked&&currentUser==='Logan')refreshMonitor()});
 
-const bonusCatalog=[['Wash the dogs',25],['Walk the dogs',15],['Clean windows',20],['Clean the car',25],['Vacuum the car',20],['Pick up the yard',15],['Take out extra trash',10],['Help with groceries',10]];
+const bonusCatalog=[['Wash the dogs',25],['Walk the dogs',15],['Clean windows',20],['Clean the car',25],['Vacuum the car',20],['Pick up the yard',15],['Take out extra trash',10],['Help with groceries',10],['Other',0]];
 let bonusRequests=[],bonusNotice='';
 function bonusChoresView(){
  const mine=bonusRequests.filter(x=>x.person===currentUser&&(x.status==='pending'||afterReset(x.reviewedAt||x.at,pointResetAt))).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
- return '<div class="card"><h2>🐾 Extra bonus chores</h2><p>Do an extra chore and request parent approval. Points are added only after approval.</p><label>Choose chore</label><select id="extra-chore">'+bonusCatalog.map((x,i)=>'<option value="'+i+'">'+escapeHTML(x[0])+' — '+x[1]+' ⭐</option>').join('')+'</select><label>Note (optional)</label><input type="text" id="extra-note" maxlength="120" placeholder="What did you do?"><button id="extra-submit" class="primary-action">Request approval</button>'+(bonusNotice?'<p role="status">'+escapeHTML(bonusNotice)+'</p>':'')+'</div><div class="card"><h2>My bonus requests</h2>'+(mine.length?mine.map(x=>'<div class="task"><span><strong>'+escapeHTML(x.chore)+'</strong> · '+x.amount+' ⭐<br><small>'+escapeHTML(x.status==='approved'?'Approved by '+x.reviewedBy:x.status==='rejected'?'Declined by '+x.reviewedBy:'Awaiting parent approval')+'</small></span></div>').join(''):'<p>No requests yet.</p>')+'</div>';
+ return '<div class="card"><h2>🐾 Extra bonus chores</h2><p>Do an extra chore and request parent approval. Points are added only after approval.</p><label>Choose chore</label><select id="extra-chore">'+bonusCatalog.map((x,i)=>'<option value="'+i+'">'+escapeHTML(x[0])+' — '+x[1]+' ⭐</option>').join('')+'</select><div id="other-bonus-fields" style="display:none"><label>Other chore description</label><input id="other-bonus-name" maxlength="100" placeholder="e.g. Organize the pantry"><label>Requested points (1–50)</label><input id="other-bonus-amount" type="number" min="1" max="50" value="10"><small>Parent approval required.</small></div><label>Note (optional)</label><input type="text" id="extra-note" maxlength="120" placeholder="What did you do?"><button id="extra-submit" class="primary-action">Request approval</button>'+(bonusNotice?'<p role="status">'+escapeHTML(bonusNotice)+'</p>':'')+'</div><div class="card"><h2>My bonus requests</h2>'+(mine.length?mine.map(x=>'<div class="task"><span><strong>'+escapeHTML(x.chore)+'</strong> · '+x.amount+' ⭐<br><small>'+escapeHTML(x.status==='approved'?'Approved by '+x.reviewedBy:x.status==='rejected'?'Declined by '+x.reviewedBy:'Awaiting parent approval')+'</small></span></div>').join(''):'<p>No requests yet.</p>')+'</div>';
 }
 async function submitBonusChore(){
  const item=bonusCatalog[Number(document.getElementById('extra-chore').value)],note=document.getElementById('extra-note').value.trim();
+ const isOther=item&&item[0]==='Other',customName=isOther?document.getElementById('other-bonus-name').value.trim():'',customAmount=isOther?Number(document.getElementById('other-bonus-amount').value):0;
+ if(isOther&&(!customName||!Number.isInteger(customAmount)||customAmount<1||customAmount>50)){alert('Enter the other chore and request 1–50 points.');return}
  if(!item||!window.saveBonusRequest){alert('Cloud sync is not ready.');return}
  const b=document.getElementById('extra-submit');b.disabled=true;b.textContent='Sending…';
- try{await window.saveBonusRequest({person:currentUser,chore:item[0],amount:item[1],note,status:'pending',at:new Date().toISOString()});bonusNotice='Request sent for parent approval.';render()}
+ try{await window.saveBonusRequest({person:currentUser,chore:isOther?customName:item[0],amount:isOther?customAmount:item[1],note,status:'pending',at:new Date().toISOString()});bonusNotice='Request sent for parent approval.';render()}
  catch(e){alert('Request failed: '+e.message);b.disabled=false;b.textContent='Request approval'}
 }
 async function reviewBonusChore(id,approve){
@@ -312,6 +314,8 @@ html+=section(tab==='Progress'?'All weekly chores':'Assignments',filtered,'No ch
 document.getElementById('content').innerHTML=html;
 document.querySelectorAll('[data-id]').forEach(x=>x.onchange=()=>mark(x.dataset.id,x.checked));
 const bonusButton=document.getElementById('award-bonus');if(bonusButton)bonusButton.onclick=awardBonus;for(const kind of ['transfer','adjust']){const b=document.getElementById(kind+'-submit');if(b)b.onclick=()=>movePoints(kind)}
+const extraSelect=document.getElementById('extra-chore');
+if(extraSelect){const toggleOther=()=>{const panel=document.getElementById('other-bonus-fields');if(panel)panel.style.display=bonusCatalog[Number(extraSelect.value)]?.[0]==='Other'?'block':'none'};extraSelect.onchange=toggleOther;toggleOther()}
 const extraButton=document.getElementById('extra-submit');if(extraButton)extraButton.onclick=submitBonusChore;
 document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>reviewBonusChore(b.dataset.approve,true));
 document.querySelectorAll('[data-decline]').forEach(b=>b.onclick=()=>reviewBonusChore(b.dataset.decline,false));
@@ -337,7 +341,7 @@ try{
  await setDoc(doc(db,'chores','assignment-'+id),{type:'assignment-override',taskId:id,...override,updatedAt:new Date().toISOString(),updatedBy:currentUser});
  };
  onSnapshot(query(collection(db,'chores'),where('type','==','assignment-override')),snapshot=>{
- const next={};snapshot.forEach(d=>{const v=d.data();if(v.taskId&&/^(dish|laundry|area)\\d+$/.test(v.taskId))next[v.taskId]={person:v.person,name:v.name,day:v.day,days:v.days}});
+ const next={};snapshot.forEach(d=>{const v=d.data();if(v.taskId&&/^(dish|laundry|area)\\d+(?:_\\d+)?$/.test(v.taskId))next[v.taskId]={person:v.person,name:v.name,day:v.day,days:v.days}});
  taskOverrides=next;render();
  },e=>{cloudError='Assignment sync: '+e.message;updateCloudStatus()});
  window.saveBonusRequest=async entry=>{
