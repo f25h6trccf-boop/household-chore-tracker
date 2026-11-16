@@ -5,7 +5,7 @@
 :root{font-family:system-ui,sans-serif;color:#203044;background:#f4f7fb}body{margin:0}header{background:#173b49;color:white;padding:25px 18px}header h1{margin:0}main{max-width:850px;margin:auto;padding:16px}.card{background:white;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 2px 12px #1232}nav{display:flex;gap:8px;flex-wrap:wrap}button,input{font:inherit}button{border:0;border-radius:9px;padding:10px 13px;background:#dce9ee;cursor:pointer}.active{background:#087d78;color:white}.task{display:flex;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid #ddd}.task input{width:20px;height:20px}small{color:#526678}.done{text-decoration:line-through;color:#70818a}footer{padding:15px;text-align:center}
 .calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px}.calendar-toolbar h2{font-size:1.2rem;text-align:center}.calendar-toolbar button{font-size:1.5rem}.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.calendar-head{text-align:center;font-size:.75rem;font-weight:700;padding:8px 0}.calendar-day{min-width:0;min-height:65px;background:#edf4f5;padding:5px 2px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:5px}.calendar-day small{font-size:.58rem;line-height:1.4;white-space:normal}.calendar-day.selected{background:#087d78;color:white}.calendar-day.is-today{outline:2px solid #e7a52e;outline-offset:-2px}@media(max-width:450px){.calendar-day{min-height:58px}.calendar-day small{font-size:.53rem}.card{padding:12px}}
 .identity-overlay{position:fixed;inset:0;background:#112c39ee;z-index:10;display:flex;align-items:center;justify-content:center;padding:18px}.identity-panel{background:white;border-radius:20px;padding:25px;width:min(100%,440px);box-sizing:border-box;text-align:center}.identity-panel select{width:100%;font:inherit;padding:12px;margin:12px 0;border:1px solid #a8b9c0;border-radius:10px}.identity-panel button{width:100%;background:#087d78;color:white}.identity-panel button:disabled{opacity:.5}.identity-banner{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;color:#fff}.identity-banner button{font-size:.85rem}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 1.6.0 · Progress is saved on this device. Review assignments against the handwritten original.</footer>
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 1.7.0 · Progress is saved on this device. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -32,17 +32,19 @@ let currentUser=localStorage.getItem('chore-current-user')||'';
 let loganUnlocked=false;
 let tab='Today';const tabs=['Today','Calendar','Dishes','Laundry','Cleaning','Progress'];
 let calendarMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1),selectedDate=new Date();
-function week(){let d=new Date(),s=new Date(d);s.setDate(d.getDate()-d.getDay());return s.toLocaleDateString('en-CA')}
+function week(d=new Date()){let s=new Date(d.getFullYear(),d.getMonth(),d.getDate());s.setDate(s.getDate()-s.getDay());return dateKey(s)}
+function laundryDays(i){return i===0?['Friday','Saturday']:i===1?['Saturday','Sunday']:[['Friday','Saturday'],['Saturday','Sunday'],['Monday'],['Friday'],['Tuesday'],['Thursday'],['Wednesday']][i]}
+function taskDays(t){return t.days|| (t.day?[t.day]:[])}
 function tasks(){return [
 ...days.map((day,i)=>({id:'dish'+i,day,person:dishes[i],name:'Wash dishes'})),
-...laundry.map(([person,name],i)=>({id:'laundry'+i,person,name,day:name.match(/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/)?.[0]||''})),
+...laundry.map(([person,name],i)=>({id:'laundry'+i,person,name,day:laundryDays(i)[0],days:laundryDays(i)})),
 ...areas.map(([person,name],i)=>({id:'area'+i,person,name,day:''}))
 ]}
-const key=()=> 'chore-checks-'+week();
-function checks(){try{return JSON.parse(localStorage.getItem(key())||'{}')}catch{return {}}}
-function mark(id,v){let c=checks();if(v)c[id]={by:currentUser,at:new Date().toISOString()};else delete c[id];localStorage.setItem(key(),JSON.stringify(c));render()}
-function taskHTML(t){let c=checks();return '<label class="task"><input type="checkbox" data-id="'+t.id+'" '+(c[t.id]?'checked':'')+'><span class="'+(c[t.id]?'done':'')+'"><strong>'+escapeHTML(t.person)+'</strong> — '+escapeHTML(t.name)+(t.day?' <small>('+escapeHTML(t.day)+')</small>':'')+(c[t.id]?'<small> · Checked off by '+escapeHTML(typeof c[t.id]==='object'?c[t.id].by:'Unknown (older checkmark)')+'</small>':'')+'</span></label>'}
-function section(title,items,empty){return '<div class="card"><h2>'+title+'</h2>'+(items.length?items.map(taskHTML).join(''):'<p><small>'+empty+'</small></p>')+'</div>'}
+const key=(d=new Date())=>'chore-checks-'+week(d);
+function checks(d=new Date()){try{return JSON.parse(localStorage.getItem(key(d))||'{}')}catch{return {}}}
+function mark(id,v){let d=tab==='Calendar'?selectedDate:new Date(),c=checks(d);if(v)c[id]={by:currentUser,at:new Date().toISOString()};else delete c[id];localStorage.setItem(key(d),JSON.stringify(c));render()}
+function taskHTML(t,d=new Date()){let c=checks(d);return '<label class="task"><input type="checkbox" data-id="'+t.id+'" '+(c[t.id]?'checked':'')+'><span class="'+(c[t.id]?'done':'')+'"><strong>'+escapeHTML(t.person)+'</strong> — '+escapeHTML(t.name)+(t.day?' <small>('+escapeHTML(t.day)+')</small>':'')+(c[t.id]?'<small> · Checked off by '+escapeHTML(typeof c[t.id]==='object'?c[t.id].by:'Unknown (older checkmark)')+'</small>':'')+'</span></label>'}
+function section(title,items,empty,d=new Date()){return '<div class="card"><h2>'+title+'</h2>'+(items.length?items.map(t=>taskHTML(t,d)).join(''):'<p><small>'+empty+'</small></p>')+'</div>'}
 function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function calendarView(all){
 const y=calendarMonth.getFullYear(),m=calendarMonth.getMonth(),first=new Date(y,m,1).getDay(),count=new Date(y,m+1,0).getDate();
@@ -50,12 +52,12 @@ let grid='<div class="calendar-grid">'+days.map(d=>'<div class="calendar-head">'
 for(let i=0;i<first;i++)grid+='<div></div>';
 for(let n=1;n<=count;n++){
 let d=new Date(y,m,n),day=d.getDay(),k=dateKey(d),selected=k===dateKey(selectedDate),isToday=k===dateKey(new Date());
-let dayTasks=all.filter(t=>t.day===days[day]||(day===6&&t.id.startsWith('area')));
+let dayTasks=all.filter(t=>taskDays(t).includes(days[day])||(day===6&&t.id.startsWith('area')));
 grid+='<button class="calendar-day '+(selected?'selected ':'')+(isToday?'is-today':'')+'" data-date="'+k+'"><strong>'+n+'</strong><small>'+dayTasks.filter(t=>t.id.startsWith('dish')).length+' 🍽️ '+dayTasks.filter(t=>t.id.startsWith('laundry')).length+' 🧺'+(day===6?' 🧹':'')+'</small></button>';
 }
 grid+='</div>';
-let selectedDay=days[selectedDate.getDay()],selectedTasks=all.filter(t=>t.day===selectedDay||(selectedDate.getDay()===6&&t.id.startsWith('area')));
-return '<div class="card"><div class="calendar-toolbar"><button data-month="-1" aria-label="Previous month">‹</button><h2>'+calendarMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</h2><button data-month="1" aria-label="Next month">›</button></div>'+grid+'<p><small>🍽️ Dishes · 🧺 Laundry · 🧹 Weekly cleaning deadline</small></p></div>'+section('📅 '+selectedDate.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}),selectedTasks,'No scheduled chores');
+let selectedDay=days[selectedDate.getDay()],selectedTasks=all.filter(t=>taskDays(t).includes(selectedDay)||(selectedDate.getDay()===6&&t.id.startsWith('area')));
+return '<div class="card"><div class="calendar-toolbar"><button data-month="-1" aria-label="Previous month">‹</button><h2>'+calendarMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</h2><button data-month="1" aria-label="Next month">›</button></div>'+grid+'<p><small>🍽️ Dishes · 🧺 Laundry · 🧹 Weekly cleaning deadline · Selected week: '+week(selectedDate)+'</small></p></div>'+section('📅 '+selectedDate.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}),selectedTasks,'No scheduled chores',selectedDate);
 }
 function showIdentity(){
 const overlay=document.getElementById('identity');overlay.hidden=false;overlay.style.display='flex';
@@ -81,16 +83,18 @@ add('Calendar date calculations',[0,1,2,3,4,5,6].every(i=>days[new Date(2026,10,
 try{let probe='chore-monitor-probe';localStorage.setItem(probe,'ok');let ok=localStorage.getItem(probe)==='ok';localStorage.removeItem(probe);add('Device storage write/read',ok,'Tests whether local progress can be saved')}catch(e){add('Device storage write/read',false,'Storage unavailable: '+e.message)}
 try{stored=checks();add('Saved checkmarks format',stored&&typeof stored==='object'&&!Array.isArray(stored),'Saved weekly progress is readable')}catch(e){add('Saved checkmarks format',false,String(e))}
 add('No unknown saved tasks',Object.keys(stored).every(id=>all.some(t=>t.id===id)),'Detects obsolete or mismatched saved IDs');
+add('Multi-day laundry coverage',taskDays(all.find(t=>t.id==='laundry0')).includes('Saturday')&&taskDays(all.find(t=>t.id==='laundry1')).includes('Sunday'),'Checks weekend laundry assignments');
+add('Calendar week separation',key(new Date(2026,10,15))!==key(new Date(2026,10,22)),'Different calendar weeks have separate saved checkmarks');
 add('Navigation tabs present',tabs.includes('Today')&&tabs.includes('Calendar')&&tabs.includes('Progress'),'Checks main navigation configuration');
 add('Admin access state',currentUser==='Logan'&&loganUnlocked,'Admin monitor only runs after Logan PIN entry');
 const suggestions=[];
-const overdue=all.filter(t=>t.day&&days.indexOf(t.day)<new Date().getDay()&&!stored[t.id]).length;
+const overdue=all.filter(t=>taskDays(t).length&&taskDays(t).every(d=>days.indexOf(d)<new Date().getDay())&&!stored[t.id]).length;
 if(overdue)suggestions.push(overdue+' earlier scheduled chore(s) are still unchecked. Consider an overdue summary.');
 if(!navigator.onLine)suggestions.push('Device appears offline. Changes will stay on this device only.');
 suggestions.push('Progress does not sync between family devices. Add a shared database for household-wide updates.');
 suggestions.push('The PIN is stored in public browser code. Use server-side authentication for real admin privacy.');
-suggestions.push('Laundry entries with multiple possible days currently display on their first matching day; consider explicit start and end dates.');
-suggestions.push('Weekly checkmarks are reused across calendar weeks, including past/future month views. Add date-specific history.');
+suggestions.push('Multi-day laundry assignments now appear on both scheduled days. Consider setting exact start and end times.');
+suggestions.push('Calendar now saves progress by selected week. Individual daily completion history would require separate per-day records.');
 let time=new Date(),report={time:time.toLocaleTimeString(),timestamp:time.toISOString(),results,suggestions,passed:results.filter(x=>x.ok).length,failed:results.filter(x=>!x.ok).length};
 monitorState.last=report;monitorState.runs++;
 monitorState.history.unshift({time:report.time,passed:report.passed,failed:report.failed});
@@ -127,9 +131,9 @@ let all=tasks(),now=new Date(),dayIndex=now.getDay(),today=days[dayIndex],c=chec
 let summary='<div class="card"><h2>'+(tab==='Today'?today+' · Your chore dashboard':tab==='Progress'?'Weekly progress':tab)+'</h2><p><strong>'+done+' / '+all.length+'</strong> chores completed this week</p><progress value="'+done+'" max="'+all.length+'" style="width:100%"></progress><p><small>Week beginning '+week()+' · Weekly deadline: Saturday</small></p></div>';
 let html=summary;
 if(tab==='Logan Only'&&currentUser==='Logan'&&loganUnlocked){html=adminView(all)}else if(tab==='Calendar'){html=calendarView(all)}else if(tab==='Today'){
-let due=all.filter(t=>t.day===today);
-let upcoming=all.filter(t=>t.id.startsWith('laundry')&&t.day&&days.indexOf(t.day)>dayIndex&&!c[t.id]);
-let overdue=all.filter(t=>t.day&&days.indexOf(t.day)<dayIndex&&!c[t.id]);
+let due=all.filter(t=>taskDays(t).includes(today));
+let upcoming=all.filter(t=>t.id.startsWith('laundry')&&taskDays(t).some(d=>days.indexOf(d)>dayIndex)&&!c[t.id]);
+let overdue=all.filter(t=>taskDays(t).length&&taskDays(t).every(d=>days.indexOf(d)<dayIndex)&&!c[t.id]);
 let weekly=all.filter(t=>t.id.startsWith('area')&&!c[t.id]);
 html+=section('📌 Due today',due,'No scheduled dishes or laundry today');
 html+=section('🧺 Upcoming laundry this week',upcoming,'No more scheduled laundry this week');
