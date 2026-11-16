@@ -9,7 +9,7 @@
 .card select,.card input[type="number"],.card input[type="text"],#bonus-reason{display:block;box-sizing:border-box;width:100%;padding:12px;margin:7px 0 15px;border:1px solid #9caeb8;border-radius:9px;font:inherit}.card label{font-weight:650}#award-bonus{background:#087d78;color:white;font-weight:700}
 .point-form .point-field{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:20px 0}.point-form .point-field label{display:block;font-weight:700;margin:0}.point-form .point-field input,.point-form .point-field select{display:block;width:100%;min-width:0;box-sizing:border-box;padding:12px;border:1px solid #a8b9c0;border-radius:10px;font:inherit;background:#fff;color:#203045}.point-form .point-field select{background:#e9edf0}.point-form button{display:inline-block;margin-top:8px}
 .admin-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.admin-stats>div{background:#eaf4f3;border-radius:12px;padding:12px;text-align:center}.admin-stats strong{display:block;font-size:1.4rem}.admin-stats small{display:block}.approval-item{padding:14px 0;border-bottom:1px solid #ddd}.approval-actions{display:flex;gap:8px;margin-top:9px}.primary-action{background:#087d78;color:white;font-weight:700}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.8 · Correct positive and negative point display · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.9 · Updated live diagnostics · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -111,14 +111,17 @@ add('Multi-day laundry coverage',taskDays(all.find(t=>t.id==='laundry0')).includ
 add('Calendar week separation',key(new Date(2026,10,15))!==key(new Date(2026,10,22)),'Different calendar weeks have separate saved checkmarks');
 add('Navigation tabs present',tabs.includes('Today')&&tabs.includes('Calendar')&&tabs.includes('Progress'),'Checks main navigation configuration');
 add('Admin access state',currentUser==='Logan'&&loganUnlocked,'Admin monitor only runs after Logan PIN entry');
+add('Live Firebase sync',cloudReady&&!cloudError,cloudReady?'Connected to shared household data':'Waiting for connection or sync error');
+add('Parent approval system',typeof window.saveBonusRequest==='function'&&typeof window.reviewBonusRequest==='function','Bonus requests and reviews have cloud save handlers');
+add('Shared point transactions',typeof window.savePointMovement==='function','Point transfers and deductions have a cloud save handler');
 const suggestions=[];
 const overdue=all.filter(t=>taskDays(t).length&&taskDays(t).every(d=>days.indexOf(d)<new Date().getDay())&&!stored[t.id]).length;
 if(overdue)suggestions.push(overdue+' earlier scheduled chore(s) are still unchecked. Consider an overdue summary.');
 if(!navigator.onLine)suggestions.push('Device appears offline. Changes will stay on this device only.');
-suggestions.push('Progress does not sync between family devices. Add a shared database for household-wide updates.');
+if(!cloudReady)suggestions.push('Live cloud sync is not connected right now. Check the sync status above and your internet connection.');
 suggestions.push('The PIN is stored in public browser code. Use server-side authentication for real admin privacy.');
-suggestions.push('Multi-day laundry assignments now appear on both scheduled days. Consider setting exact start and end times.');
-suggestions.push('Calendar now saves progress by selected week. Individual daily completion history would require separate per-day records.');
+
+
 let time=new Date(),report={time:time.toLocaleTimeString(),timestamp:time.toISOString(),results,suggestions,passed:results.filter(x=>x.ok).length,failed:results.filter(x=>!x.ok).length};
 monitorState.last=report;monitorState.runs++;
 monitorState.history.unshift({time:report.time,passed:report.passed,failed:report.failed});
@@ -129,7 +132,7 @@ function monitorView(){
 let r=monitorState.last||auditApp();
 return '<div class="card"><h2>🧠 Live App Monitor</h2><p><strong>Monitoring while this app is open</strong> · Automated checks every 30 seconds</p><p><strong>'+r.passed+' passed · '+r.failed+' flagged</strong> out of '+r.results.length+' checks</p><p><small>Last scan: '+escapeHTML(r.time)+' · Scans this session: '+monitorState.runs+'</small></p><button id="scan-now">Run checks now</button></div>'+
 '<div class="card"><h2>Function checks</h2>'+r.results.map(x=>'<div class="task"><span>'+(x.ok?'✅':'⚠️')+' <strong>'+escapeHTML(x.name)+'</strong><div><small>'+escapeHTML(x.detail)+'</small></div></span></div>').join('')+'</div>'+
-'<div class="card"><h2>💡 Improvement suggestions</h2>'+r.suggestions.map(x=>'<p>• '+escapeHTML(x)+'</p>').join('')+'</div>'+
+'<div class="card"><h2>💡 Improvement suggestions</h2>'+(r.suggestions.length?r.suggestions.map(x=>'<p>• '+escapeHTML(x)+'</p>').join(''):'<p>✅ No additional suggestions from the current checks.</p>')+'</div>'+
 '<div class="card"><h2>Recent live scans</h2>'+monitorState.history.map(x=>'<div class="task"><small>'+escapeHTML(x.time)+' — '+x.passed+' passed, '+x.failed+' flagged</small></div>').join('')+'</div>'+
 '<div class="card"><small>This is a local automated diagnostics engine, not a cloud AI model. It checks known invariants without modifying chores or GitHub. It cannot test every possible interaction, detect every bug, or keep running after the browser closes.</small></div>';
 }
