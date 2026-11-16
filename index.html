@@ -4,7 +4,8 @@
 <style>
 :root{font-family:system-ui,sans-serif;color:#203044;background:#f4f7fb}body{margin:0}header{background:#173b49;color:white;padding:25px 18px}header h1{margin:0}main{max-width:850px;margin:auto;padding:16px}.card{background:white;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 2px 12px #1232}nav{display:flex;gap:8px;flex-wrap:wrap}button,input{font:inherit}button{border:0;border-radius:9px;padding:10px 13px;background:#dce9ee;cursor:pointer}.active{background:#087d78;color:white}.task{display:flex;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid #ddd}.task input{width:20px;height:20px}small{color:#526678}.done{text-decoration:line-through;color:#70818a}footer{padding:15px;text-align:center}
 .calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px}.calendar-toolbar h2{font-size:1.2rem;text-align:center}.calendar-toolbar button{font-size:1.5rem}.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.calendar-head{text-align:center;font-size:.75rem;font-weight:700;padding:8px 0}.calendar-day{min-width:0;min-height:65px;background:#edf4f5;padding:5px 2px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:5px}.calendar-day small{font-size:.58rem;line-height:1.4;white-space:normal}.calendar-day.selected{background:#087d78;color:white}.calendar-day.is-today{outline:2px solid #e7a52e;outline-offset:-2px}@media(max-width:450px){.calendar-day{min-height:58px}.calendar-day small{font-size:.53rem}.card{padding:12px}}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><main><nav id="tabs"></nav><section id="content"></section></main><footer>Progress is saved on this device. Review assignments against the handwritten original.</footer>
+.identity-overlay{position:fixed;inset:0;background:#112c39ee;z-index:10;display:flex;align-items:center;justify-content:center;padding:18px}.identity-panel{background:white;border-radius:20px;padding:25px;width:min(100%,440px);box-sizing:border-box;text-align:center}.identity-panel select{width:100%;font:inherit;padding:12px;margin:12px 0;border:1px solid #a8b9c0;border-radius:10px}.identity-panel button{width:100%;background:#087d78;color:white}.identity-panel button:disabled{opacity:.5}.identity-banner{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;color:#fff}.identity-banner button{font-size:.85rem}
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Progress is saved on this device. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -26,6 +27,8 @@ const areas=[
 ['Myk','Kitchen, garage, outside deck'],
 ['Natalie','Bathroom, laundry, hall, mud room']
 ];
+const members=['Logan','Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Trystan','Myk','Smalls'];
+let currentUser=localStorage.getItem('chore-current-user')||'';
 let tab='Today';const tabs=['Today','Calendar','Dishes','Laundry','Cleaning','Progress'];
 let calendarMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1),selectedDate=new Date();
 function week(){let d=new Date(),s=new Date(d);s.setDate(d.getDate()-d.getDay());return s.toLocaleDateString('en-CA')}
@@ -53,7 +56,10 @@ grid+='</div>';
 let selectedDay=days[selectedDate.getDay()],selectedTasks=all.filter(t=>t.day===selectedDay||(selectedDate.getDay()===6&&t.id.startsWith('area')));
 return '<div class="card"><div class="calendar-toolbar"><button data-month="-1" aria-label="Previous month">‹</button><h2>'+calendarMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</h2><button data-month="1" aria-label="Next month">›</button></div>'+grid+'<p><small>🍽️ Dishes · 🧺 Laundry · 🧹 Weekly cleaning deadline</small></p></div>'+section('📅 '+selectedDate.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}),selectedTasks,'No scheduled chores');
 }
+function showIdentity(){const overlay=document.getElementById('identity');overlay.hidden=false;overlay.style.display='flex';overlay.innerHTML='<div class="identity-panel"><h2>👋 Who is checking in?</h2><p>Choose your name to open the household chore tracker.</p><select id="member-select"><option value="">Select your name</option>'+members.map(n=>'<option value="'+n+'">'+n+'</option>').join('')+'</select><button id="enter-app" disabled>Continue</button><p><small>Your name is remembered on this device. This is not a secure login.</small></p></div>';let select=document.getElementById('member-select'),button=document.getElementById('enter-app');select.onchange=()=>button.disabled=!select.value;button.onclick=()=>{if(!select.value)return;currentUser=select.value;localStorage.setItem('chore-current-user',currentUser);overlay.hidden=true;overlay.style.display='none';render()};}
 function render(){
+document.getElementById('identity-banner').innerHTML='<span>👤 Viewing as <strong>'+escapeHTML(currentUser)+'</strong></span><button id="switch-member">Switch name</button>';
+document.getElementById('switch-member').onclick=showIdentity;
 document.getElementById('tabs').innerHTML=tabs.map(t=>'<button class="'+(tab===t?'active':'')+'" data-tab="'+t+'">'+t+'</button>').join('');
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
 let all=tasks(),now=new Date(),dayIndex=now.getDay(),today=days[dayIndex],c=checks(),done=all.filter(t=>c[t.id]).length;
@@ -78,5 +84,5 @@ document.querySelectorAll('[data-month]').forEach(x=>x.onclick=()=>{calendarMont
 document.querySelectorAll('[data-date]').forEach(x=>x.onclick=()=>{let [y,m,d]=x.dataset.date.split('-').map(Number);selectedDate=new Date(y,m-1,d);render()});
 }
 function escapeHTML(s){return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
-render();
+if(currentUser&&members.includes(currentUser)){render()}else{showIdentity()}
 </script></html>
