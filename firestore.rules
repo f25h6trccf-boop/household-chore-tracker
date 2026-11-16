@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Safe default: no client access until authenticated family memberships
+    // and adult/child roles are implemented and tested.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
