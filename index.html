@@ -7,7 +7,8 @@
 .identity-overlay[hidden]{display:none!important}.identity-overlay{position:fixed;inset:0;background:#112c39ee;z-index:10;display:flex;align-items:center;justify-content:center;padding:18px}.identity-panel{background:white;border-radius:20px;padding:25px;width:min(100%,440px);box-sizing:border-box;text-align:center}.identity-panel select{width:100%;font:inherit;padding:12px;margin:12px 0;border:1px solid #a8b9c0;border-radius:10px}.identity-panel button{width:100%;background:#087d78;color:white}.identity-panel button:disabled{opacity:.5}.identity-banner{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;color:#fff}.identity-banner button{font-size:.85rem}
 .identity-banner{color:#173b49!important;background:#e0ebee;border-radius:12px;padding:10px 12px;margin:12px 0}.identity-banner strong{color:#173b49}.identity-banner button{background:#c3dce3;color:#123c51;font-weight:700}nav button{color:#173b49;font-weight:650}nav button.active{color:#fff;background:#087d78}.task-details{display:flex;flex-direction:column;gap:5px;min-width:0;line-height:1.4}.completion-credit{display:block;font-size:.88rem;color:#075d48;font-weight:600;text-decoration:none!important}.completion-credit strong{color:#075d48}.task .done{color:#63717d}.task input{flex-shrink:0;accent-color:#087d78}.card{color:#203044}
 .card select,.card input[type="number"],.card input[type="text"],#bonus-reason{display:block;box-sizing:border-box;width:100%;padding:12px;margin:7px 0 15px;border:1px solid #9caeb8;border-radius:9px;font:inherit}.card label{font-weight:650}#award-bonus{background:#087d78;color:white;font-weight:700}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.3 · Shared point transfers and adult adjustments · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+.point-form .point-field{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:20px 0}.point-form .point-field label{display:block;font-weight:700;margin:0}.point-form .point-field input,.point-form .point-field select{display:block;width:100%;min-width:0;box-sizing:border-box;padding:12px;border:1px solid #a8b9c0;border-radius:10px;font:inherit;background:#fff;color:#203045}.point-form .point-field select{background:#e9edf0}.point-form button{display:inline-block;margin-top:8px}
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 2.4 · Improved point forms and save confirmations · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -164,6 +165,7 @@ function pointLedger(name){
 }
 let pointMovements=[];
 function score(name){return pointLedger(name).reduce((n,x)=>n+x.amount,0)}
+let pointsNotice='';
 async function movePoints(kind){
  const recipient=document.getElementById(kind+'-person').value,amount=Number(document.getElementById(kind+'-amount').value),reason=document.getElementById(kind+'-reason').value.trim();
  if(!members.includes(recipient)||!Number.isInteger(amount)||amount<1||amount>50||!reason){alert('Select a person, 1–50 points, and a reason.');return}
@@ -172,15 +174,24 @@ async function movePoints(kind){
  const owner=kind==='transfer'?currentUser:recipient;
  if(score(owner)<amount){alert('Insufficient points. Available: '+score(owner));return}
  if(!window.savePointMovement){alert('Cloud sync is not ready.');return}
- const button=document.getElementById(kind+'-submit');button.disabled=true;
- try{await window.savePointMovement({kind,from:owner,to:kind==='transfer'?recipient:'',amount,reason,by:currentUser,at:new Date().toISOString()})}
- catch(e){alert('Save failed: '+e.message);button.disabled=false}
+ const button=document.getElementById(kind+'-submit');button.disabled=true;button.textContent='Saving…';
+ try{
+ await window.savePointMovement({kind,from:owner,to:kind==='transfer'?recipient:'',amount,reason,by:currentUser,at:new Date().toISOString()});
+ pointsNotice=kind==='transfer'?'✅ Successfully transferred '+amount+' points to '+recipient+'.':'✅ Successfully deducted '+amount+' points from '+recipient+'.';
+ render();
+ }catch(e){alert('Save failed: '+e.message);button.disabled=false;button.textContent=kind==='transfer'?'Transfer points':'Deduct points'}
 }
 function pointsControls(){
- const options=names=>names.map(n=>'<option value="'+n+'">'+n+'</option>').join('');
- const transfer='<div class="card"><h2>↔️ Transfer points</h2><p>Send points from your balance to someone else.</p><label>Recipient</label><select id="transfer-person">'+options(members.filter(n=>n!==currentUser))+'</select><label>Amount</label><input id="transfer-amount" type="number" min="1" max="50" value="5"><label>Reason</label><input id="transfer-reason" placeholder="Reason" maxlength="120"><button id="transfer-submit">Transfer points</button></div>';
- const adjust=managerUnlocked&&pointManagers.includes(currentUser)?'<div class="card"><h2>⚖️ Adult point adjustment</h2><p>Logan, Natalie, and Myk can deduct points for behavior. The reason and adult name are recorded.</p><label>Person</label><select id="adjust-person">'+options(members.filter(n=>!pointManagers.includes(n)))+'</select><label>Amount to deduct</label><input id="adjust-amount" type="number" min="1" max="50" value="5"><label>Reason</label><input id="adjust-reason" placeholder="Behavior and reason" maxlength="120"><button id="adjust-submit">Deduct points</button></div>':'';
- return transfer+adjust;
+ const options=names=>names.map(n=>'<option value="'+n+'">'+escapeHTML(n)+'</option>').join('');
+ const field=(id,label,control)=>'<div class="point-field"><label for="'+id+'">'+label+'</label>'+control+'</div>';
+ const form=(kind,title,description,personLabel,people,amountLabel,placeholder,buttonLabel)=>'<div class="card point-form"><h2>'+title+'</h2><p>'+description+'</p>'+
+ field(kind+'-person',personLabel,'<select id="'+kind+'-person">'+options(people)+'</select>')+
+ field(kind+'-amount',amountLabel,'<input id="'+kind+'-amount" type="number" min="1" max="50" value="5">')+
+ field(kind+'-reason','Reason','<input id="'+kind+'-reason" type="text" placeholder="'+placeholder+'" maxlength="120">')+
+ '<button id="'+kind+'-submit" type="button">'+buttonLabel+'</button></div>';
+ const transfer=form('transfer','↔️ Transfer points','Send points from your balance to someone else.','Recipient',members.filter(n=>n!==currentUser),'Amount','Why are you sending points?','Transfer points');
+ const adjust=managerUnlocked&&pointManagers.includes(currentUser)?form('adjust','⚖️ Adult point adjustment','Logan, Natalie, and Myk can deduct points for behavior. The reason and adult name are recorded.','Person',members.filter(n=>!pointManagers.includes(n)),'Amount to deduct','Behavior and reason','Deduct points'):'';
+ return (pointsNotice?'<div class="card" role="status" aria-live="polite"><strong>'+escapeHTML(pointsNotice)+'</strong><p>Saved to the shared point history.</p></div>':'')+transfer+adjust;
 }
 async function awardBonus(){
  if(!managerUnlocked||!pointManagers.includes(currentUser))return;
