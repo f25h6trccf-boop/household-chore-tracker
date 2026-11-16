@@ -35,11 +35,30 @@ function tasks(){return [
 const key=()=> 'chore-checks-'+week();
 function checks(){try{return JSON.parse(localStorage.getItem(key())||'{}')}catch{return {}}}
 function mark(id,v){let c=checks();c[id]=v;localStorage.setItem(key(),JSON.stringify(c));render()}
-function render(){document.getElementById('tabs').innerHTML=tabs.map(t=>'<button class="'+(tab===t?'active':'')+'" data-tab="'+t+'">'+t+'</button>').join('');document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
-let all=tasks(),today=days[new Date().getDay()],filtered=tab==='Today'?all.filter(t=>t.day===today):tab==='Dishes'?all.filter(t=>t.id.startsWith('dish')):tab==='Laundry'?all.filter(t=>t.id.startsWith('laundry')):tab==='Cleaning'?all.filter(t=>t.id.startsWith('area')):all;
-let c=checks(),done=all.filter(t=>c[t.id]).length;
-document.getElementById('content').innerHTML='<div class="card"><h2>'+(tab==='Today'?today+' chores':tab==='Progress'?'Weekly progress':tab)+'</h2><p><strong>'+done+' / '+all.length+'</strong> chores completed this week</p><progress value="'+done+'" max="'+all.length+'" style="width:100%"></progress><small>Week beginning '+week()+'</small></div><div class="card">'+(filtered.length?filtered.map(t=>'<label class="task"><input type="checkbox" data-id="'+t.id+'" '+(c[t.id]?'checked':'')+'><span class="'+(c[t.id]?'done':'')+'"><strong>'+escapeHTML(t.person)+'</strong> — '+escapeHTML(t.name)+(t.day?' <small>('+escapeHTML(t.day)+')</small>':'')+'</span></label>').join(''):'No chores scheduled today')+'</div>';
-document.querySelectorAll('[data-id]').forEach(x=>x.onchange=()=>mark(x.dataset.id,x.checked))}
+function taskHTML(t){let c=checks();return '<label class="task"><input type="checkbox" data-id="'+t.id+'" '+(c[t.id]?'checked':'')+'><span class="'+(c[t.id]?'done':'')+'"><strong>'+escapeHTML(t.person)+'</strong> — '+escapeHTML(t.name)+(t.day?' <small>('+escapeHTML(t.day)+')</small>':'')+'</span></label>'}
+function section(title,items,empty){return '<div class="card"><h2>'+title+'</h2>'+(items.length?items.map(taskHTML).join(''):'<p><small>'+empty+'</small></p>')+'</div>'}
+function render(){
+document.getElementById('tabs').innerHTML=tabs.map(t=>'<button class="'+(tab===t?'active':'')+'" data-tab="'+t+'">'+t+'</button>').join('');
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
+let all=tasks(),now=new Date(),dayIndex=now.getDay(),today=days[dayIndex],c=checks(),done=all.filter(t=>c[t.id]).length;
+let summary='<div class="card"><h2>'+(tab==='Today'?today+' · Your chore dashboard':tab==='Progress'?'Weekly progress':tab)+'</h2><p><strong>'+done+' / '+all.length+'</strong> chores completed this week</p><progress value="'+done+'" max="'+all.length+'" style="width:100%"></progress><p><small>Week beginning '+week()+' · Weekly deadline: Saturday</small></p></div>';
+let html=summary;
+if(tab==='Today'){
+let due=all.filter(t=>t.day===today);
+let upcoming=all.filter(t=>t.id.startsWith('laundry')&&t.day&&days.indexOf(t.day)>dayIndex&&!c[t.id]);
+let overdue=all.filter(t=>t.day&&days.indexOf(t.day)<dayIndex&&!c[t.id]);
+let weekly=all.filter(t=>t.id.startsWith('area')&&!c[t.id]);
+html+=section('📌 Due today',due,'No scheduled dishes or laundry today');
+html+=section('🧺 Upcoming laundry this week',upcoming,'No more scheduled laundry this week');
+html+=section('⚠️ Earlier scheduled chores still unfinished',overdue,'Nothing overdue');
+html+=section('🧹 Cleaning due by Saturday',weekly,'All weekly cleaning assignments completed');
+}else{
+let filtered=tab==='Dishes'?all.filter(t=>t.id.startsWith('dish')):tab==='Laundry'?all.filter(t=>t.id.startsWith('laundry')):tab==='Cleaning'?all.filter(t=>t.id.startsWith('area')):all;
+html+=section(tab==='Progress'?'All weekly chores':'Assignments',filtered,'No chores');
+}
+document.getElementById('content').innerHTML=html;
+document.querySelectorAll('[data-id]').forEach(x=>x.onchange=()=>mark(x.dataset.id,x.checked));
+}
 function escapeHTML(s){return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
 render();
 </script></html>
