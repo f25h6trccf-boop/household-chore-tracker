@@ -29,6 +29,7 @@ const areas=[
 ];
 const members=['Logan','Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Trystan','Myk','Smalls'];
 let currentUser=localStorage.getItem('chore-current-user')||'';
+let loganUnlocked=false;
 let tab='Today';const tabs=['Today','Calendar','Dishes','Laundry','Cleaning','Progress'];
 let calendarMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1),selectedDate=new Date();
 function week(){let d=new Date(),s=new Date(d);s.setDate(d.getDate()-d.getDay());return s.toLocaleDateString('en-CA')}
@@ -56,16 +57,31 @@ grid+='</div>';
 let selectedDay=days[selectedDate.getDay()],selectedTasks=all.filter(t=>t.day===selectedDay||(selectedDate.getDay()===6&&t.id.startsWith('area')));
 return '<div class="card"><div class="calendar-toolbar"><button data-month="-1" aria-label="Previous month">‹</button><h2>'+calendarMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</h2><button data-month="1" aria-label="Next month">›</button></div>'+grid+'<p><small>🍽️ Dishes · 🧺 Laundry · 🧹 Weekly cleaning deadline</small></p></div>'+section('📅 '+selectedDate.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}),selectedTasks,'No scheduled chores');
 }
-function showIdentity(){const overlay=document.getElementById('identity');overlay.hidden=false;overlay.style.display='flex';overlay.innerHTML='<div class="identity-panel"><h2>👋 Who is checking in?</h2><p>Choose your name to open the household chore tracker.</p><select id="member-select"><option value="">Select your name</option>'+members.map(n=>'<option value="'+n+'">'+n+'</option>').join('')+'</select><button id="enter-app" disabled>Continue</button><p><small>Your name is remembered on this device. This is not a secure login.</small></p></div>';let select=document.getElementById('member-select'),button=document.getElementById('enter-app');select.onchange=()=>button.disabled=!select.value;button.onclick=()=>{if(!select.value)return;currentUser=select.value;localStorage.setItem('chore-current-user',currentUser);overlay.hidden=true;overlay.style.display='none';render()};}
+function showIdentity(){
+const overlay=document.getElementById('identity');overlay.hidden=false;overlay.style.display='flex';
+overlay.innerHTML='<div class="identity-panel"><h2>👋 Who is checking in?</h2><p>Choose your name to open the household chore tracker.</p><select id="member-select"><option value="">Select your name</option>'+members.map(n=>'<option value="'+n+'">'+n+'</option>').join('')+'</select><div id="logan-password" hidden><label for="admin-pin">Logan access code</label><input id="admin-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="Enter 4-digit code" style="width:100%;box-sizing:border-box;padding:12px;margin:8px 0;border:1px solid #a8b9c0;border-radius:10px"></div><p id="identity-error" role="alert" style="color:#a32020"></p><button id="enter-app" disabled>Continue</button><p><small>Your name is remembered on this device. This is a basic access screen, not secure authentication.</small></p></div>';
+let select=document.getElementById('member-select'),button=document.getElementById('enter-app');
+select.onchange=()=>{button.disabled=!select.value;document.getElementById('logan-password').hidden=select.value!=='Logan';document.getElementById('identity-error').textContent=''};
+button.onclick=()=>{if(!select.value)return;
+if(select.value==='Logan'&&document.getElementById('admin-pin').value!=='0118'){document.getElementById('identity-error').textContent='Incorrect access code';return}
+loganUnlocked=select.value==='Logan';currentUser=select.value;
+localStorage.setItem('chore-current-user',currentUser);overlay.hidden=true;overlay.style.display='none';tab='Today';render()};
+}
+function adminView(all){
+let c=checks(),people=members.map(n=>({name:n,assigned:all.filter(t=>t.person.split(' & ').includes(n)),completed:all.filter(t=>t.person.split(' & ').includes(n)&&c[t.id])}));
+return '<div class="card"><h2>🔒 Logan’s private dashboard</h2><p>Household overview for the current week.</p><p><small>This page is hidden behind a basic PIN screen, but GitHub Pages cannot provide real security for client-side passwords.</small></p></div><div class="card"><h2>Family chore progress</h2>'+people.map(p=>'<div class="task"><span><strong>'+escapeHTML(p.name)+'</strong> — '+p.completed.length+' of '+p.assigned.length+' assignments completed</span></div>').join('')+'</div>'+section('All weekly assignments',all,'No assignments');
+}
 function render(){
 document.getElementById('identity-banner').innerHTML='<span>👤 Viewing as <strong>'+escapeHTML(currentUser)+'</strong></span><button id="switch-member">Switch name</button>';
-document.getElementById('switch-member').onclick=showIdentity;
-document.getElementById('tabs').innerHTML=tabs.map(t=>'<button class="'+(tab===t?'active':'')+'" data-tab="'+t+'">'+t+'</button>').join('');
+document.getElementById('switch-member').onclick=()=>{loganUnlocked=false;showIdentity()};
+if(tab==='Logan Only'&&!(currentUser==='Logan'&&loganUnlocked))tab='Today';
+let visibleTabs=currentUser==='Logan'&&loganUnlocked?[...tabs,'Logan Only']:tabs;
+document.getElementById('tabs').innerHTML=visibleTabs.map(t=>'<button class="'+(tab===t?'active':'')+'" data-tab="'+t+'">'+t+'</button>').join('');
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
 let all=tasks(),now=new Date(),dayIndex=now.getDay(),today=days[dayIndex],c=checks(),done=all.filter(t=>c[t.id]).length;
 let summary='<div class="card"><h2>'+(tab==='Today'?today+' · Your chore dashboard':tab==='Progress'?'Weekly progress':tab)+'</h2><p><strong>'+done+' / '+all.length+'</strong> chores completed this week</p><progress value="'+done+'" max="'+all.length+'" style="width:100%"></progress><p><small>Week beginning '+week()+' · Weekly deadline: Saturday</small></p></div>';
 let html=summary;
-if(tab==='Calendar'){html=calendarView(all)}else if(tab==='Today'){
+if(tab==='Logan Only'&&currentUser==='Logan'&&loganUnlocked){html=adminView(all)}else if(tab==='Calendar'){html=calendarView(all)}else if(tab==='Today'){
 let due=all.filter(t=>t.day===today);
 let upcoming=all.filter(t=>t.id.startsWith('laundry')&&t.day&&days.indexOf(t.day)>dayIndex&&!c[t.id]);
 let overdue=all.filter(t=>t.day&&days.indexOf(t.day)<dayIndex&&!c[t.id]);
@@ -84,5 +100,5 @@ document.querySelectorAll('[data-month]').forEach(x=>x.onclick=()=>{calendarMont
 document.querySelectorAll('[data-date]').forEach(x=>x.onclick=()=>{let [y,m,d]=x.dataset.date.split('-').map(Number);selectedDate=new Date(y,m-1,d);render()});
 }
 function escapeHTML(s){return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
-if(currentUser&&members.includes(currentUser)){render()}else{showIdentity()}
+if(currentUser&&members.includes(currentUser)&&currentUser!=='Logan'){render()}else{showIdentity()}
 </script></html>
