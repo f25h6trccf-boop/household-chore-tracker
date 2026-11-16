@@ -40,8 +40,8 @@ function tasks(){return [
 ]}
 const key=()=> 'chore-checks-'+week();
 function checks(){try{return JSON.parse(localStorage.getItem(key())||'{}')}catch{return {}}}
-function mark(id,v){let c=checks();c[id]=v;localStorage.setItem(key(),JSON.stringify(c));render()}
-function taskHTML(t){let c=checks();return '<label class="task"><input type="checkbox" data-id="'+t.id+'" '+(c[t.id]?'checked':'')+'><span class="'+(c[t.id]?'done':'')+'"><strong>'+escapeHTML(t.person)+'</strong> — '+escapeHTML(t.name)+(t.day?' <small>('+escapeHTML(t.day)+')</small>':'')+'</span></label>'}
+function mark(id,v){let c=checks();if(v)c[id]={by:currentUser,at:new Date().toISOString()};else delete c[id];localStorage.setItem(key(),JSON.stringify(c));render()}
+function taskHTML(t){let c=checks();return '<label class="task"><input type="checkbox" data-id="'+t.id+'" '+(c[t.id]?'checked':'')+'><span class="'+(c[t.id]?'done':'')+'"><strong>'+escapeHTML(t.person)+'</strong> — '+escapeHTML(t.name)+(t.day?' <small>('+escapeHTML(t.day)+')</small>':'')+(c[t.id]?'<small> · Checked off by '+escapeHTML(typeof c[t.id]==='object'?c[t.id].by:'Unknown (older checkmark)')+'</small>':'')+'</span></label>'}
 function section(title,items,empty){return '<div class="card"><h2>'+title+'</h2>'+(items.length?items.map(taskHTML).join(''):'<p><small>'+empty+'</small></p>')+'</div>'}
 function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function calendarView(all){
