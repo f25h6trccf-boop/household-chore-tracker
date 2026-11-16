@@ -11,7 +11,7 @@
 .admin-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.admin-stats>div{background:#eaf4f3;border-radius:12px;padding:12px;text-align:center}.admin-stats strong{display:block;font-size:1.4rem}.admin-stats small{display:block}.approval-item{padding:14px 0;border-bottom:1px solid #ddd}.approval-actions{display:flex;gap:8px;margin-top:9px}.primary-action{background:#087d78;color:white;font-weight:700}
 .edit-task{border-bottom:1px solid #d9e2e7;padding:14px 0}.edit-task summary{cursor:pointer;line-height:1.5}.edit-task label{display:block;margin-top:14px}.edit-task button{margin-top:8px}
 .member-picker{border:1px solid #d2dfe3;border-radius:10px;margin-top:14px;padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.member-picker legend{font-weight:700;padding:0 6px}.member-picker .member-choice{display:flex;align-items:center;gap:8px;margin:0;padding:8px;border-radius:8px;background:#edf4f5;font-weight:500}.member-choice input{width:19px;height:19px;accent-color:#087d78;flex-shrink:0}@media(max-width:350px){.member-picker{grid-template-columns:1fr}}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 3.1 · Multi-person chore assignments · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 3.2 · Bonus history clears with point reset · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -150,7 +150,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tab==='Lo
 const bonusCatalog=[['Wash the dogs',25],['Walk the dogs',15],['Clean windows',20],['Clean the car',25],['Vacuum the car',20],['Pick up the yard',15],['Take out extra trash',10],['Help with groceries',10]];
 let bonusRequests=[],bonusNotice='';
 function bonusChoresView(){
- const mine=bonusRequests.filter(x=>x.person===currentUser).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+ const mine=bonusRequests.filter(x=>x.person===currentUser&&(x.status==='pending'||afterReset(x.reviewedAt||x.at,pointResetAt))).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
  return '<div class="card"><h2>🐾 Extra bonus chores</h2><p>Do an extra chore and request parent approval. Points are added only after approval.</p><label>Choose chore</label><select id="extra-chore">'+bonusCatalog.map((x,i)=>'<option value="'+i+'">'+escapeHTML(x[0])+' — '+x[1]+' ⭐</option>').join('')+'</select><label>Note (optional)</label><input type="text" id="extra-note" maxlength="120" placeholder="What did you do?"><button id="extra-submit" class="primary-action">Request approval</button>'+(bonusNotice?'<p role="status">'+escapeHTML(bonusNotice)+'</p>':'')+'</div><div class="card"><h2>My bonus requests</h2>'+(mine.length?mine.map(x=>'<div class="task"><span><strong>'+escapeHTML(x.chore)+'</strong> · '+x.amount+' ⭐<br><small>'+escapeHTML(x.status==='approved'?'Approved by '+x.reviewedBy:x.status==='rejected'?'Declined by '+x.reviewedBy:'Awaiting parent approval')+'</small></span></div>').join(''):'<p>No requests yet.</p>')+'</div>';
 }
 async function submitBonusChore(){
@@ -197,11 +197,11 @@ function pointLedger(name){
 let pointMovements=[];
 let pointResetAt='',taskResetAt='';
 function afterReset(at,cutoff){return !cutoff||(at&&String(at)>cutoff)}
-function resetPanel(){return '<div class="card"><h2>🔄 Household reset</h2><p>Logan only. Choose separately whether to clear everyone’s point balances and whether to reset all chore checkmarks. Both changes sync across phones.</p><button id="household-reset" type="button">Refresh / Reset household</button><p><small>Resets cannot be undone in the app. This does not delete chore assignments or family names.</small></p></div>'}
+function resetPanel(){return '<div class="card"><h2>🔄 Household reset</h2><p>Logan only. Choose separately whether to clear everyone’s point balances (including visible bonus award history) and whether to reset all chore checkmarks. Both changes sync across phones.</p><button id="household-reset" type="button">Refresh / Reset household</button><p><small>Resets cannot be undone in the app. This does not delete chore assignments or family names.</small></p></div>'}
 async function resetHousehold(){
  if(currentUser!=='Logan'||!loganUnlocked)return;
  if(!window.saveHouseholdReset){alert('Firebase is not connected. Try again later.');return}
- const clearPoints=confirm('Do you want to clear ALL points for everyone?\n\nOK = Yes, Cancel = No');
+ const clearPoints=confirm('Do you want to clear ALL points and bonus award history for everyone?\n\nOK = Yes, Cancel = No');
  const clearTasks=confirm('Do you want to reset ALL task checkmarks for everyone?\n\nOK = Yes, Cancel = No');
  if(!clearPoints&&!clearTasks){alert('No changes made.');return}
  if(!confirm('Final confirmation: reset '+(clearPoints?'ALL points':'')+(clearPoints&&clearTasks?' AND ':'')+(clearTasks?'ALL tasks':'')+' on every phone?'))return;
@@ -251,7 +251,7 @@ async function awardBonus(){
  alert('Cloud is not connected. Please wait for live sync before awarding points.');
  button.disabled=false;button.textContent='Award points';
 }
-function bonusPanel(){let entries=bonusEntries().slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,10);return '<div class="card"><h2>🌟 Give extra points</h2><p>For helping out, being kind, or doing extra chores.</p><label>Give points to</label><select id="bonus-person">'+members.filter(n=>!pointManagers.includes(n)).map(n=>'<option value="'+n+'">'+n+'</option>').join('')+'</select><label>Points (1–50)</label><input id="bonus-amount" type="number" min="1" max="50" value="10"><label>Reason</label><input id="bonus-reason" maxlength="120" placeholder="e.g. Helped clean the garage"><button id="award-bonus">Award points</button><h3>Recent bonus awards</h3>'+(entries.length?entries.map(x=>'<p><strong>'+escapeHTML(x.person)+'</strong> +'+x.amount+' ⭐ — '+escapeHTML(x.reason)+' <small>from '+escapeHTML(x.by)+'</small></p>').join(''):'<p>No bonus points awarded yet.</p>')+'</div>'}
+function bonusPanel(){let entries=bonusEntries().filter(x=>afterReset(x.at,pointResetAt)).slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,10);return '<div class="card"><h2>🌟 Give extra points</h2><p>For helping out, being kind, or doing extra chores.</p><label>Give points to</label><select id="bonus-person">'+members.filter(n=>!pointManagers.includes(n)).map(n=>'<option value="'+n+'">'+n+'</option>').join('')+'</select><label>Points (1–50)</label><input id="bonus-amount" type="number" min="1" max="50" value="10"><label>Reason</label><input id="bonus-reason" maxlength="120" placeholder="e.g. Helped clean the garage"><button id="award-bonus">Award points</button><h3>Recent bonus awards</h3>'+(entries.length?entries.map(x=>'<p><strong>'+escapeHTML(x.person)+'</strong> +'+x.amount+' ⭐ — '+escapeHTML(x.reason)+' <small>from '+escapeHTML(x.by)+'</small></p>').join(''):'<p>No bonus points awarded yet.</p>')+'</div>'}
 function rewardsView(){
  const ledger=pointLedger(currentUser),points=ledger.reduce((n,x)=>n+x.amount,0);
  const prizes=[['🎬 Choose movie night',30],['🍦 Pick dessert',50],['🎮 Choose game night',75],['🎉 Pick weekend activity',120]];
