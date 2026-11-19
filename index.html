@@ -13,7 +13,7 @@
 .member-picker{border:1px solid #d2dfe3;border-radius:10px;margin-top:14px;padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.member-picker legend{font-weight:700;padding:0 6px}.member-picker .member-choice{display:flex;align-items:center;gap:8px;margin:0;padding:8px;border-radius:8px;background:#edf4f5;font-weight:500}.member-choice input{width:19px;height:19px;accent-color:#087d78;flex-shrink:0}@media(max-width:350px){.member-picker{grid-template-columns:1fr}}
 @media(max-width:450px){header{padding:18px 14px}header h1{font-size:clamp(1.55rem,7vw,2.1rem);overflow-wrap:anywhere}main{padding:10px}nav{gap:6px}nav button{padding:10px 11px;font-size:.9rem}.admin-stats>div{padding:7px 4px}.admin-stats strong{font-size:1.1rem}.task-details{overflow-wrap:anywhere}.identity-banner{flex-wrap:wrap}.cleaning-group summary{flex-wrap:wrap;overflow-wrap:anywhere}}@media(max-width:360px){.admin-stats{grid-template-columns:1fr}}
 .celebration-layer{position:fixed;inset:0;z-index:9999;pointer-events:none;overflow:hidden}.celebration-message{position:absolute;top:19%;left:50%;transform:translateX(-50%);padding:16px 24px;border-radius:20px;background:#fff9e8;color:#7d5100;border:2px solid #e7b63d;box-shadow:0 8px 30px #0003;font-size:clamp(1.3rem,5vw,2rem);font-weight:800;text-align:center;white-space:normal;max-width:min(85vw,420px);width:max-content;box-sizing:border-box;overflow-wrap:break-word;animation:celebration-pop 2.4s ease forwards}.gold-confetti{position:absolute;top:-30px;width:9px;height:17px;background:#f6c744;animation:gold-rain var(--duration) linear forwards;animation-delay:var(--delay);opacity:0}@keyframes gold-rain{0%{transform:translateY(-30px) rotate(0);opacity:1}90%{opacity:1}100%{transform:translateY(110vh) rotate(900deg);opacity:0}}@keyframes celebration-pop{0%{transform:translate(-50%,-20px) scale(.75);opacity:0}12%,75%{transform:translate(-50%,0) scale(1);opacity:1}100%{transform:translate(-50%,-12px) scale(.96);opacity:0}}@media(prefers-reduced-motion:reduce){.gold-confetti{animation:none;display:none}.celebration-message{animation:none;opacity:1}}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 4.0 · Family ideas and reward suggestions · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 4.0.1 · Parent suggestion removal · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -287,9 +287,15 @@ function suggestionView(){
  const parent=pointManagers.includes(currentUser)&&managerUnlocked;
  const own=familySuggestions.filter(x=>x.person===currentUser).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
  const all=familySuggestions.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)));
- const item=x=>'<div class="suggestion-item"><strong>'+escapeHTML(x.person)+'</strong> · '+escapeHTML(x.kind==='upgrade'?'App upgrade':'Reward idea')+'<p>'+escapeHTML(x.idea)+'</p><small>'+escapeHTML(x.at?new Date(x.at).toLocaleDateString():'')+'</small></div>';
+ const item=x=>'<div class="suggestion-item"><strong>'+escapeHTML(x.person)+'</strong> · '+escapeHTML(x.kind==='upgrade'?'App upgrade':'Reward idea')+'<p>'+escapeHTML(x.idea)+'</p><small>'+escapeHTML(x.at?new Date(x.at).toLocaleDateString():'')+'</small>'+(parent?'<button type="button" data-delete-suggestion="'+escapeHTML(x.id)+'">Delete suggestion</button>':'')+'</div>';
  return '<div class="card"><h2>💡 What should we add next?</h2><p>Tell the family what upgrades you would like in the app or what rewards you would like to earn. Parents can review everyone’s ideas.</p><label for="idea-kind">I would like to suggest</label><select id="idea-kind"><option value="upgrade">An app upgrade</option><option value="reward">A reward</option></select><label for="idea-text">My idea</label><textarea id="idea-text" rows="4" maxlength="500" placeholder="Describe your idea or reward..."></textarea><button id="send-idea" class="primary-action">Send my suggestion</button>'+(suggestionNotice?'<p role="status">'+escapeHTML(suggestionNotice)+'</p>':'')+'</div>'+
  '<div class="card"><h2>📬 '+(parent?'Family suggestions':'My suggestions')+'</h2><p><small>Suggestions do not automatically create rewards or change points.</small></p>'+((parent?all:own).length?(parent?all:own).map(item).join(''):'<p>No suggestions yet.</p>')+'</div>';
+}
+async function deleteSuggestion(id){
+ if(!managerUnlocked||!pointManagers.includes(currentUser)||!window.deleteFamilySuggestion)return;
+ const entry=familySuggestions.find(x=>x.id===id);if(!entry||!confirm('Delete suggestion from '+entry.person+'?'))return;
+ try{await window.deleteFamilySuggestion(id);suggestionNotice='Suggestion deleted.';render()}
+ catch(e){alert('Could not delete suggestion: '+(e.message||e))}
 }
 async function submitSuggestion(){
  const kind=document.getElementById('idea-kind')?.value,idea=document.getElementById('idea-text')?.value.trim();
@@ -394,6 +400,7 @@ const extraButton=document.getElementById('extra-submit');if(extraButton)extraBu
 document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>reviewBonusChore(b.dataset.approve,true));
 document.querySelectorAll('[data-decline]').forEach(b=>b.onclick=()=>reviewBonusChore(b.dataset.decline,false));
 document.querySelectorAll('[data-save-task]').forEach(b=>b.onclick=()=>saveEditedTask(b.dataset.saveTask));
+document.querySelectorAll('[data-delete-suggestion]').forEach(b=>b.onclick=()=>deleteSuggestion(b.dataset.deleteSuggestion));
 const ideaButton=document.getElementById('send-idea');if(ideaButton)ideaButton.onclick=submitSuggestion;
 const addButton=document.getElementById('add-task');if(addButton)addButton.onclick=addTask;
 document.querySelectorAll('[data-delete-task]').forEach(b=>b.onclick=()=>deleteTask(b.dataset.deleteTask));
@@ -409,11 +416,15 @@ showIdentity()
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js";
 import {getAuth,onAuthStateChanged,signInAnonymously} from "https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js";
-import {getFirestore,collection,query,where,onSnapshot,doc,setDoc} from "https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js";
+import {getFirestore,collection,query,where,onSnapshot,doc,setDoc,deleteDoc} from "https://www.gstatic.com/firebasejs/13.3.0/firebase-firestore.js";
 const firebaseConfig={apiKey:"AIzaSyCfZn2UACHKcDD3OLkm-P5lA8vgTDq42zM",authDomain:"household-chore-tracker-a42b4.firebaseapp.com",projectId:"household-chore-tracker-a42b4",storageBucket:"household-chore-tracker-a42b4.firebasestorage.app",messagingSenderId:"447582728746",appId:"1:447582728746:web:4da4156830949c5c76c953",measurementId:"G-X77TER0D6B"};
 try{
  const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
  let unsub=null,activeWeek='';
+ window.deleteFamilySuggestion=async id=>{
+ if(!auth.currentUser)throw Error('Not signed in');
+ await deleteDoc(doc(db,'chores',id));
+ };
  window.saveFamilySuggestion=async entry=>{
  if(!auth.currentUser)throw Error('Not signed in');
  await setDoc(doc(collection(db,'chores')),{...entry,type:'family-suggestion'});
