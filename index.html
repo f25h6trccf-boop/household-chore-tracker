@@ -13,7 +13,7 @@
 .member-picker{border:1px solid #d2dfe3;border-radius:10px;margin-top:14px;padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.member-picker legend{font-weight:700;padding:0 6px}.member-picker .member-choice{display:flex;align-items:center;gap:8px;margin:0;padding:8px;border-radius:8px;background:#edf4f5;font-weight:500}.member-choice input{width:19px;height:19px;accent-color:#087d78;flex-shrink:0}@media(max-width:350px){.member-picker{grid-template-columns:1fr}}
 @media(max-width:450px){header{padding:18px 14px}header h1{font-size:clamp(1.55rem,7vw,2.1rem);overflow-wrap:anywhere}main{padding:10px}nav{gap:6px}nav button{padding:10px 11px;font-size:.9rem}.admin-stats>div{padding:7px 4px}.admin-stats strong{font-size:1.1rem}.task-details{overflow-wrap:anywhere}.identity-banner{flex-wrap:wrap}.cleaning-group summary{flex-wrap:wrap;overflow-wrap:anywhere}}@media(max-width:360px){.admin-stats{grid-template-columns:1fr}}
 .celebration-layer{position:fixed;inset:0;z-index:9999;pointer-events:none;overflow:hidden}.celebration-message{position:absolute;top:19%;left:50%;transform:translateX(-50%);padding:16px 24px;border-radius:20px;background:#fff9e8;color:#7d5100;border:2px solid #e7b63d;box-shadow:0 8px 30px #0003;font-size:clamp(1.3rem,5vw,2rem);font-weight:800;text-align:center;white-space:normal;max-width:min(85vw,420px);width:max-content;box-sizing:border-box;overflow-wrap:break-word;animation:celebration-pop 2.4s ease forwards}.gold-confetti{position:absolute;top:-30px;width:9px;height:17px;background:#f6c744;animation:gold-rain var(--duration) linear forwards;animation-delay:var(--delay);opacity:0}@keyframes gold-rain{0%{transform:translateY(-30px) rotate(0);opacity:1}90%{opacity:1}100%{transform:translateY(110vh) rotate(900deg);opacity:0}}@keyframes celebration-pop{0%{transform:translate(-50%,-20px) scale(.75);opacity:0}12%,75%{transform:translate(-50%,0) scale(1);opacity:1}100%{transform:translate(-50%,-12px) scale(.96);opacity:0}}@media(prefers-reduced-motion:reduce){.gold-confetti{animation:none;display:none}.celebration-message{animation:none;opacity:1}}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 4.0.1 · Parent suggestion removal · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 4.0.2 · Suggestion removal permission fix · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -294,7 +294,7 @@ function suggestionView(){
 async function deleteSuggestion(id){
  if(!managerUnlocked||!pointManagers.includes(currentUser)||!window.deleteFamilySuggestion)return;
  const entry=familySuggestions.find(x=>x.id===id);if(!entry||!confirm('Delete suggestion from '+entry.person+'?'))return;
- try{await window.deleteFamilySuggestion(id);suggestionNotice='Suggestion deleted.';render()}
+ try{await window.deleteFamilySuggestion(id);familySuggestions=familySuggestions.filter(x=>x.id!==id);suggestionNotice='Suggestion removed.';render()}
  catch(e){alert('Could not delete suggestion: '+(e.message||e))}
 }
 async function submitSuggestion(){
@@ -423,14 +423,14 @@ try{
  let unsub=null,activeWeek='';
  window.deleteFamilySuggestion=async id=>{
  if(!auth.currentUser)throw Error('Not signed in');
- await deleteDoc(doc(db,'chores',id));
+ await setDoc(doc(db,'chores',id),{deleted:true,deletedAt:new Date().toISOString(),deletedBy:currentUser},{merge:true});
  };
  window.saveFamilySuggestion=async entry=>{
  if(!auth.currentUser)throw Error('Not signed in');
  await setDoc(doc(collection(db,'chores')),{...entry,type:'family-suggestion'});
  };
  onSnapshot(query(collection(db,'chores'),where('type','==','family-suggestion')),snapshot=>{
- familySuggestions=snapshot.docs.map(d=>({id:d.id,...d.data()}));render();
+ familySuggestions=snapshot.docs.map(d=>({id:d.id,...d.data()})).filter(x=>!x.deleted);render();
  },e=>{cloudError='Suggestion sync: '+e.message;updateCloudStatus()});
  window.saveCustomTask=async task=>{
  if(!auth.currentUser)throw Error('Not signed in');
