@@ -9,11 +9,11 @@
 .card select,.card input[type="number"],.card input[type="text"],#bonus-reason{display:block;box-sizing:border-box;width:100%;padding:12px;margin:7px 0 15px;border:1px solid #9caeb8;border-radius:9px;font:inherit}.card label{font-weight:650}#award-bonus{background:#087d78;color:white;font-weight:700}
 .point-form .point-field{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:20px 0}.point-form .point-field label{display:block;font-weight:700;margin:0}.point-form .point-field input,.point-form .point-field select{display:block;width:100%;min-width:0;box-sizing:border-box;padding:12px;border:1px solid #a8b9c0;border-radius:10px;font:inherit;background:#fff;color:#203045}.point-form .point-field select{background:#e9edf0}.point-form button{display:inline-block;margin-top:8px}
 .admin-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.admin-stats>div{background:#eaf4f3;border-radius:12px;padding:12px;text-align:center}.admin-stats strong{display:block;font-size:1.4rem}.admin-stats small{display:block}.approval-item{padding:14px 0;border-bottom:1px solid #ddd}.approval-actions{display:flex;gap:8px;margin-top:9px}.primary-action{background:#087d78;color:white;font-weight:700}
-.edit-task{border-bottom:1px solid #d9e2e7;padding:14px 0}.edit-task summary{cursor:pointer;line-height:1.5}.card textarea{display:block;box-sizing:border-box;width:100%;padding:12px;margin:7px 0 15px;border:1px solid #9caeb8;border-radius:9px;font:inherit;min-height:80px;resize:vertical}.task-note{display:block;white-space:pre-wrap;overflow-wrap:anywhere}.original-day{display:block;color:#526678;font-size:.82rem;font-weight:500;margin:4px 0 0 23px}.edit-task label{display:block;margin-top:14px}.edit-task button{margin-top:8px}
+.edit-task{border-bottom:1px solid #d9e2e7;padding:14px 0}.edit-task summary{cursor:pointer;line-height:1.5}.card textarea{display:block;box-sizing:border-box;width:100%;padding:12px;margin:7px 0 15px;border:1px solid #9caeb8;border-radius:9px;font:inherit;min-height:80px;resize:vertical}.suggestion-item{padding:13px 0;border-bottom:1px solid #d8dee2;overflow-wrap:anywhere}.suggestion-item p{white-space:pre-wrap;margin:8px 0}.task-note{display:block;white-space:pre-wrap;overflow-wrap:anywhere}.original-day{display:block;color:#526678;font-size:.82rem;font-weight:500;margin:4px 0 0 23px}.edit-task label{display:block;margin-top:14px}.edit-task button{margin-top:8px}
 .member-picker{border:1px solid #d2dfe3;border-radius:10px;margin-top:14px;padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.member-picker legend{font-weight:700;padding:0 6px}.member-picker .member-choice{display:flex;align-items:center;gap:8px;margin:0;padding:8px;border-radius:8px;background:#edf4f5;font-weight:500}.member-choice input{width:19px;height:19px;accent-color:#087d78;flex-shrink:0}@media(max-width:350px){.member-picker{grid-template-columns:1fr}}
 @media(max-width:450px){header{padding:18px 14px}header h1{font-size:clamp(1.55rem,7vw,2.1rem);overflow-wrap:anywhere}main{padding:10px}nav{gap:6px}nav button{padding:10px 11px;font-size:.9rem}.admin-stats>div{padding:7px 4px}.admin-stats strong{font-size:1.1rem}.task-details{overflow-wrap:anywhere}.identity-banner{flex-wrap:wrap}.cleaning-group summary{flex-wrap:wrap;overflow-wrap:anywhere}}@media(max-width:360px){.admin-stats{grid-template-columns:1fr}}
 .celebration-layer{position:fixed;inset:0;z-index:9999;pointer-events:none;overflow:hidden}.celebration-message{position:absolute;top:19%;left:50%;transform:translateX(-50%);padding:16px 24px;border-radius:20px;background:#fff9e8;color:#7d5100;border:2px solid #e7b63d;box-shadow:0 8px 30px #0003;font-size:clamp(1.3rem,5vw,2rem);font-weight:800;text-align:center;white-space:normal;max-width:min(85vw,420px);width:max-content;box-sizing:border-box;overflow-wrap:break-word;animation:celebration-pop 2.4s ease forwards}.gold-confetti{position:absolute;top:-30px;width:9px;height:17px;background:#f6c744;animation:gold-rain var(--duration) linear forwards;animation-delay:var(--delay);opacity:0}@keyframes gold-rain{0%{transform:translateY(-30px) rotate(0);opacity:1}90%{opacity:1}100%{transform:translateY(110vh) rotate(900deg);opacity:0}}@keyframes celebration-pop{0%{transform:translate(-50%,-20px) scale(.75);opacity:0}12%,75%{transform:translate(-50%,0) scale(1);opacity:1}100%{transform:translate(-50%,-12px) scale(.96);opacity:0}}@media(prefers-reduced-motion:reduce){.gold-confetti{animation:none;display:none}.celebration-message{animation:none;opacity:1}}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 3.9.2 · Custom cleaning tasks visible · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 4.0 · Family ideas and reward suggestions · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -40,12 +40,14 @@ let currentUser=localStorage.getItem('chore-current-user')||'';
 let loganUnlocked=false;
 const pointManagers=['Logan','Myk','Natalie'];const childMembers=['Wyatt','Trystan','Smalls','Evyn','Kaedyn','Greyson','Rhyan'];let managerUnlocked=false;
 function visibleTasks(){const all=tasks();return childMembers.includes(currentUser)?all.filter(t=>t.person.split(' & ').includes(currentUser)):all}
-let tab='Today';const tabs=['Today','Calendar','Dishes','Laundry','Cleaning','Bonus Chores','Progress','Rewards'];
+let tab='Today';const tabs=['Today','Calendar','Dishes','Laundry','Cleaning','Bonus Chores','Progress','Rewards','Ideas & Rewards'];
 let calendarMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1),selectedDate=new Date();
 function week(d=new Date()){let s=new Date(d.getFullYear(),d.getMonth(),d.getDate());s.setDate(s.getDate()-s.getDay());return dateKey(s)}
 function laundryDays(i){return i===0?['Friday','Saturday']:i===1?['Saturday','Sunday']:[['Friday','Saturday'],['Saturday','Sunday'],['Monday'],['Friday'],['Tuesday'],['Thursday'],['Wednesday']][i]}
 function taskDays(t){return t.days|| (t.day?[t.day]:[])}
 function isCleaningTask(t){return t.id.startsWith('area')||(t.id.startsWith('custom_')&&(!taskDays(t).length||t.category==='Cleaning'))}
+let familySuggestions=[];
+let suggestionNotice='';
 let taskOverrides={};let customTasks={};let deletedTasks=new Set();
 function tasks(){return [
 ...days.map((day,i)=>({id:'dish'+i,day,person:dishes[i],name:'Wash dishes'})),
@@ -281,6 +283,22 @@ async function awardBonus(){
  button.disabled=false;button.textContent='Award points';
 }
 function bonusPanel(){let entries=bonusEntries().filter(x=>afterReset(x.at,pointResetAt)).slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,10);return '<div class="card"><h2>🌟 Give extra points</h2><p>For helping out, being kind, or doing extra chores.</p><label>Give points to</label><select id="bonus-person">'+members.filter(n=>!pointManagers.includes(n)).map(n=>'<option value="'+n+'">'+n+'</option>').join('')+'</select><label>Points (1–50)</label><input id="bonus-amount" type="number" min="1" max="50" value="10"><label>Reason</label><input id="bonus-reason" maxlength="120" placeholder="e.g. Helped clean the garage"><button id="award-bonus">Award points</button><h3>Recent bonus awards</h3>'+(entries.length?entries.map(x=>'<p><strong>'+escapeHTML(x.person)+'</strong> +'+x.amount+' ⭐ — '+escapeHTML(x.reason)+' <small>from '+escapeHTML(x.by)+'</small></p>').join(''):'<p>No bonus points awarded yet.</p>')+'</div>'}
+function suggestionView(){
+ const parent=pointManagers.includes(currentUser)&&managerUnlocked;
+ const own=familySuggestions.filter(x=>x.person===currentUser).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+ const all=familySuggestions.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+ const item=x=>'<div class="suggestion-item"><strong>'+escapeHTML(x.person)+'</strong> · '+escapeHTML(x.kind==='upgrade'?'App upgrade':'Reward idea')+'<p>'+escapeHTML(x.idea)+'</p><small>'+escapeHTML(x.at?new Date(x.at).toLocaleDateString():'')+'</small></div>';
+ return '<div class="card"><h2>💡 What should we add next?</h2><p>Tell the family what upgrades you would like in the app or what rewards you would like to earn. Parents can review everyone’s ideas.</p><label for="idea-kind">I would like to suggest</label><select id="idea-kind"><option value="upgrade">An app upgrade</option><option value="reward">A reward</option></select><label for="idea-text">My idea</label><textarea id="idea-text" rows="4" maxlength="500" placeholder="Describe your idea or reward..."></textarea><button id="send-idea" class="primary-action">Send my suggestion</button>'+(suggestionNotice?'<p role="status">'+escapeHTML(suggestionNotice)+'</p>':'')+'</div>'+
+ '<div class="card"><h2>📬 '+(parent?'Family suggestions':'My suggestions')+'</h2><p><small>Suggestions do not automatically create rewards or change points.</small></p>'+((parent?all:own).length?(parent?all:own).map(item).join(''):'<p>No suggestions yet.</p>')+'</div>';
+}
+async function submitSuggestion(){
+ const kind=document.getElementById('idea-kind')?.value,idea=document.getElementById('idea-text')?.value.trim();
+ if(!['upgrade','reward'].includes(kind)||!idea){alert('Please write an idea first.');return}
+ if(!currentUser||!members.includes(currentUser)||!window.saveFamilySuggestion){alert('Wait for Firebase to connect before sending.');return}
+ const button=document.getElementById('send-idea');button.disabled=true;button.textContent='Sending…';
+ try{await window.saveFamilySuggestion({person:currentUser,kind,idea,at:new Date().toISOString()});suggestionNotice='Your suggestion was sent!';render()}
+ catch(e){suggestionNotice='Could not send: '+(e.message||e);button.disabled=false;button.textContent='Send my suggestion';render()}
+}
 function rewardsView(){
  const ledger=pointLedger(currentUser),points=ledger.reduce((n,x)=>n+x.amount,0);
  const prizes=[['🎬 Choose movie night',30],['🍦 Pick dessert',50],['🎮 Choose game night',75],['🎉 Pick weekend activity',120]];
@@ -351,7 +369,7 @@ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.
 let all=visibleTasks(),now=new Date(),dayIndex=now.getDay(),today=days[dayIndex],c=checks(),done=all.filter(t=>c[t.id]).length;
 let summary='<div class="card"><h2>'+(tab==='Today'?today+' · Your chore dashboard':tab==='Progress'?'Weekly progress':tab)+'</h2><p><strong>'+done+' / '+all.length+'</strong> chores completed this week</p><progress value="'+done+'" max="'+all.length+'" style="width:100%"></progress><p><small>Week beginning '+week()+' · Weekly deadline: Saturday</small></p></div>';
 let html='<p id="sync-status" role="status" style="padding:4px 10px;color:#365a64">'+escapeHTML(cloudStatus())+'</p>'+summary;
-if(tab==='Logan Only'&&currentUser==='Logan'&&loganUnlocked){html=adminView(all)}else if(tab==='Parent Dashboard'&&managerUnlocked&&pointManagers.includes(currentUser)){html=parentDashboard(all)}else if(tab==='Rewards'){html=rewardsView()}else if(tab==='Bonus Chores'){html=bonusChoresView()}else if(tab==='Progress'){html+=childMembers.includes(currentUser)?section('My weekly assignments',all,'No assignments yet'):householdOverview(all)}else if(tab==='Calendar'){html=calendarView(all)}else if(tab==='Today'){
+if(tab==='Logan Only'&&currentUser==='Logan'&&loganUnlocked){html=adminView(all)}else if(tab==='Parent Dashboard'&&managerUnlocked&&pointManagers.includes(currentUser)){html=parentDashboard(all)}else if(tab==='Rewards'){html=rewardsView()}else if(tab==='Ideas & Rewards'){html=suggestionView()}else if(tab==='Bonus Chores'){html=bonusChoresView()}else if(tab==='Progress'){html+=childMembers.includes(currentUser)?section('My weekly assignments',all,'No assignments yet'):householdOverview(all)}else if(tab==='Calendar'){html=calendarView(all)}else if(tab==='Today'){
 let due=all.filter(t=>taskDays(t).includes(today));
 let upcoming=all.filter(t=>t.id.startsWith('laundry')&&taskDays(t).some(d=>days.indexOf(d)>dayIndex)&&!c[t.id]);
 let overdue=all.filter(t=>taskDays(t).length&&taskDays(t).every(d=>days.indexOf(d)<dayIndex)&&!c[t.id]);
@@ -376,6 +394,7 @@ const extraButton=document.getElementById('extra-submit');if(extraButton)extraBu
 document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>reviewBonusChore(b.dataset.approve,true));
 document.querySelectorAll('[data-decline]').forEach(b=>b.onclick=()=>reviewBonusChore(b.dataset.decline,false));
 document.querySelectorAll('[data-save-task]').forEach(b=>b.onclick=()=>saveEditedTask(b.dataset.saveTask));
+const ideaButton=document.getElementById('send-idea');if(ideaButton)ideaButton.onclick=submitSuggestion;
 const addButton=document.getElementById('add-task');if(addButton)addButton.onclick=addTask;
 document.querySelectorAll('[data-delete-task]').forEach(b=>b.onclick=()=>deleteTask(b.dataset.deleteTask));
 document.querySelectorAll('[data-edit-task]').forEach(el=>el.addEventListener('toggle',()=>{if(el.open)openEditorTasks.add(el.dataset.editTask);else openEditorTasks.delete(el.dataset.editTask)}));
@@ -395,6 +414,13 @@ const firebaseConfig={apiKey:"AIzaSyCfZn2UACHKcDD3OLkm-P5lA8vgTDq42zM",authDomai
 try{
  const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
  let unsub=null,activeWeek='';
+ window.saveFamilySuggestion=async entry=>{
+ if(!auth.currentUser)throw Error('Not signed in');
+ await setDoc(doc(collection(db,'chores')),{...entry,type:'family-suggestion'});
+ };
+ onSnapshot(query(collection(db,'chores'),where('type','==','family-suggestion')),snapshot=>{
+ familySuggestions=snapshot.docs.map(d=>({id:d.id,...d.data()}));render();
+ },e=>{cloudError='Suggestion sync: '+e.message;updateCloudStatus()});
  window.saveCustomTask=async task=>{
  if(!auth.currentUser)throw Error('Not signed in');
  await setDoc(doc(db,'chores','task-'+task.id),{type:'custom-task',...task,deleted:false,updatedBy:currentUser});
