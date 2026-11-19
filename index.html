@@ -13,7 +13,7 @@
 .member-picker{border:1px solid #d2dfe3;border-radius:10px;margin-top:14px;padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.member-picker legend{font-weight:700;padding:0 6px}.member-picker .member-choice{display:flex;align-items:center;gap:8px;margin:0;padding:8px;border-radius:8px;background:#edf4f5;font-weight:500}.member-choice input{width:19px;height:19px;accent-color:#087d78;flex-shrink:0}@media(max-width:350px){.member-picker{grid-template-columns:1fr}}
 @media(max-width:450px){header{padding:18px 14px}header h1{font-size:clamp(1.55rem,7vw,2.1rem);overflow-wrap:anywhere}main{padding:10px}nav{gap:6px}nav button{padding:10px 11px;font-size:.9rem}.admin-stats>div{padding:7px 4px}.admin-stats strong{font-size:1.1rem}.task-details{overflow-wrap:anywhere}.identity-banner{flex-wrap:wrap}.cleaning-group summary{flex-wrap:wrap;overflow-wrap:anywhere}}@media(max-width:360px){.admin-stats{grid-template-columns:1fr}}
 .celebration-layer{position:fixed;inset:0;z-index:9999;pointer-events:none;overflow:hidden}.celebration-message{position:absolute;top:19%;left:50%;transform:translateX(-50%);padding:16px 24px;border-radius:20px;background:#fff9e8;color:#7d5100;border:2px solid #e7b63d;box-shadow:0 8px 30px #0003;font-size:clamp(1.3rem,5vw,2rem);font-weight:800;text-align:center;white-space:normal;max-width:min(85vw,420px);width:max-content;box-sizing:border-box;overflow-wrap:break-word;animation:celebration-pop 2.4s ease forwards}.gold-confetti{position:absolute;top:-30px;width:9px;height:17px;background:#f6c744;animation:gold-rain var(--duration) linear forwards;animation-delay:var(--delay);opacity:0}@keyframes gold-rain{0%{transform:translateY(-30px) rotate(0);opacity:1}90%{opacity:1}100%{transform:translateY(110vh) rotate(900deg);opacity:0}}@keyframes celebration-pop{0%{transform:translate(-50%,-20px) scale(.75);opacity:0}12%,75%{transform:translate(-50%,0) scale(1);opacity:1}100%{transform:translate(-50%,-12px) scale(.96);opacity:0}}@media(prefers-reduced-motion:reduce){.gold-confetti{animation:none;display:none}.celebration-message{animation:none;opacity:1}}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 3.9.1 · Task notes and parent controls · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 3.9.2 · Custom cleaning tasks visible · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -45,6 +45,7 @@ let calendarMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1),sel
 function week(d=new Date()){let s=new Date(d.getFullYear(),d.getMonth(),d.getDate());s.setDate(s.getDate()-s.getDay());return dateKey(s)}
 function laundryDays(i){return i===0?['Friday','Saturday']:i===1?['Saturday','Sunday']:[['Friday','Saturday'],['Saturday','Sunday'],['Monday'],['Friday'],['Tuesday'],['Thursday'],['Wednesday']][i]}
 function taskDays(t){return t.days|| (t.day?[t.day]:[])}
+function isCleaningTask(t){return t.id.startsWith('area')||(t.id.startsWith('custom_')&&(!taskDays(t).length||t.category==='Cleaning'))}
 let taskOverrides={};let customTasks={};let deletedTasks=new Set();
 function tasks(){return [
 ...days.map((day,i)=>({id:'dish'+i,day,person:dishes[i],name:'Wash dishes'})),
@@ -101,11 +102,11 @@ let grid='<div class="calendar-grid">'+days.map(d=>'<div class="calendar-head">'
 for(let i=0;i<first;i++)grid+='<div></div>';
 for(let n=1;n<=count;n++){
 let d=new Date(y,m,n),day=d.getDay(),k=dateKey(d),selected=k===dateKey(selectedDate),isToday=k===dateKey(new Date());
-let dayTasks=all.filter(t=>taskDays(t).includes(days[day])||(day===6&&t.id.startsWith('area')));
+let dayTasks=all.filter(t=>taskDays(t).includes(days[day])||(day===6&&isCleaningTask(t)));
 grid+='<button class="calendar-day '+(selected?'selected ':'')+(isToday?'is-today':'')+'" data-date="'+k+'"><strong>'+n+'</strong><small>'+dayTasks.filter(t=>t.id.startsWith('dish')).length+' 🍽️ '+dayTasks.filter(t=>t.id.startsWith('laundry')).length+' 🧺'+(day===6?' 🧹':'')+'</small></button>';
 }
 grid+='</div>';
-let selectedDay=days[selectedDate.getDay()],selectedTasks=all.filter(t=>taskDays(t).includes(selectedDay)||(selectedDate.getDay()===6&&t.id.startsWith('area')));
+let selectedDay=days[selectedDate.getDay()],selectedTasks=all.filter(t=>taskDays(t).includes(selectedDay)||(selectedDate.getDay()===6&&isCleaningTask(t)));
 return '<div class="card"><div class="calendar-toolbar"><button data-month="-1" aria-label="Previous month">‹</button><h2>'+calendarMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</h2><button data-month="1" aria-label="Next month">›</button></div>'+grid+'<p><small>🍽️ Dishes · 🧺 Laundry · 🧹 Weekly cleaning deadline · Selected week: '+week(selectedDate)+'</small></p></div>'+section('📅 '+selectedDate.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}),selectedTasks,'No scheduled chores',selectedDate);
 }
 function showIdentity(){
@@ -354,13 +355,13 @@ if(tab==='Logan Only'&&currentUser==='Logan'&&loganUnlocked){html=adminView(all)
 let due=all.filter(t=>taskDays(t).includes(today));
 let upcoming=all.filter(t=>t.id.startsWith('laundry')&&taskDays(t).some(d=>days.indexOf(d)>dayIndex)&&!c[t.id]);
 let overdue=all.filter(t=>taskDays(t).length&&taskDays(t).every(d=>days.indexOf(d)<dayIndex)&&!c[t.id]);
-let weekly=all.filter(t=>t.id.startsWith('area'));
+let weekly=all.filter(t=>isCleaningTask(t));
 html+=section('📌 Due today',due,'No scheduled dishes or laundry today');
 html+=section('🧺 Upcoming laundry this week',upcoming,'No more scheduled laundry this week');
 html+=section('⚠️ Earlier scheduled chores still unfinished',overdue,'Nothing overdue');
 html+=cleaningSection('🧹 Cleaning due by Saturday',weekly,'All weekly cleaning assignments completed');
 }else{
-let filtered=tab==='Dishes'?all.filter(t=>t.id.startsWith('dish')):tab==='Laundry'?all.filter(t=>t.id.startsWith('laundry')):tab==='Cleaning'?all.filter(t=>t.id.startsWith('area')):all;
+let filtered=tab==='Dishes'?all.filter(t=>t.id.startsWith('dish')):tab==='Laundry'?all.filter(t=>t.id.startsWith('laundry')):tab==='Cleaning'?all.filter(isCleaningTask):all;
 html+=(tab==='Cleaning'?cleaningSection('Assignments',filtered,'No chores'):section(tab==='Progress'?'All weekly chores':'Assignments',filtered,'No chores'));
 }
 document.getElementById('content').innerHTML=html;
@@ -404,7 +405,7 @@ try{
  else await setDoc(doc(db,'chores','assignment-'+id),{type:'assignment-override',taskId:id,deleted:true},{merge:true});
  };
  onSnapshot(query(collection(db,'chores'),where('type','==','custom-task')),snapshot=>{
- const next={};snapshot.forEach(d=>{const v=d.data();if(v.id&&/^custom_[a-zA-Z0-9_-]+$/.test(v.id)){if(v.deleted)deletedTasks.add(v.id);else next[v.id]={id:v.id,person:v.person,name:v.name,day:v.day||'',days:v.days||[],note:v.note||''}}});
+ const next={};snapshot.forEach(d=>{const v=d.data();if(v.id&&/^custom_[a-zA-Z0-9_-]+$/.test(v.id)){if(v.deleted)deletedTasks.add(v.id);else next[v.id]={id:v.id,person:v.person,name:v.name,day:v.day||'',days:v.days||[],note:v.note||'',category:v.category||''}}});
  customTasks=next;render();
  },e=>{cloudError='Custom task sync: '+e.message;updateCloudStatus()});
  window.saveTaskOverride=async(id,override)=>{
