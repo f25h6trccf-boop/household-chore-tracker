@@ -13,7 +13,25 @@
 .member-picker{border:1px solid #d2dfe3;border-radius:10px;margin-top:14px;padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.member-picker legend{font-weight:700;padding:0 6px}.member-picker .member-choice{display:flex;align-items:center;gap:8px;margin:0;padding:8px;border-radius:8px;background:#edf4f5;font-weight:500}.member-choice input{width:19px;height:19px;accent-color:#087d78;flex-shrink:0}@media(max-width:350px){.member-picker{grid-template-columns:1fr}}
 @media(max-width:450px){header{padding:18px 14px}header h1{font-size:clamp(1.55rem,7vw,2.1rem);overflow-wrap:anywhere}main{padding:10px}nav{gap:6px}nav button{padding:10px 11px;font-size:.9rem}.admin-stats>div{padding:7px 4px}.admin-stats strong{font-size:1.1rem}.task-details{overflow-wrap:anywhere}.identity-banner{flex-wrap:wrap}.cleaning-group summary{flex-wrap:wrap;overflow-wrap:anywhere}}@media(max-width:360px){.admin-stats{grid-template-columns:1fr}}
 .celebration-layer{position:fixed;inset:0;z-index:9999;pointer-events:none;overflow:hidden}.celebration-message{position:absolute;top:19%;left:50%;transform:translateX(-50%);padding:16px 24px;border-radius:20px;background:#fff9e8;color:#7d5100;border:2px solid #e7b63d;box-shadow:0 8px 30px #0003;font-size:clamp(1.3rem,5vw,2rem);font-weight:800;text-align:center;white-space:normal;max-width:min(85vw,420px);width:max-content;box-sizing:border-box;overflow-wrap:break-word;animation:celebration-pop 2.4s ease forwards}.gold-confetti{position:absolute;top:-30px;width:9px;height:17px;background:#f6c744;animation:gold-rain var(--duration) linear forwards;animation-delay:var(--delay);opacity:0}@keyframes gold-rain{0%{transform:translateY(-30px) rotate(0);opacity:1}90%{opacity:1}100%{transform:translateY(110vh) rotate(900deg);opacity:0}}@keyframes celebration-pop{0%{transform:translate(-50%,-20px) scale(.75);opacity:0}12%,75%{transform:translate(-50%,0) scale(1);opacity:1}100%{transform:translate(-50%,-12px) scale(.96);opacity:0}}@media(prefers-reduced-motion:reduce){.gold-confetti{animation:none;display:none}.celebration-message{animation:none;opacity:1}}
-</style><header><h1>🏡 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p></header><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 4.0.5 · Parent lockout recovery · Cloud sync when connected. Review assignments against the handwritten original.</footer>
+
+/* Christmas theme: presentation only */
+:root{color:#203d32;background:#edf4ef}
+body{background-image:radial-gradient(circle at 15px 15px,#fff 0 2px,transparent 3px),radial-gradient(circle at 40px 40px,#fff 0 1.5px,transparent 2.5px);background-size:60px 60px}
+header{background:linear-gradient(125deg,#123d2b,#205b40);border-bottom:5px solid #b92e3b;position:relative;padding-top:40px}
+header::before{content:"";position:absolute;top:0;left:0;right:0;height:13px;background:radial-gradient(ellipse at center,#f9cf65 0 4px,transparent 5px) 0 0/48px 13px,radial-gradient(ellipse at center,#ff7777 0 4px,transparent 5px) 16px 0/48px 13px,radial-gradient(ellipse at center,#8ee5b0 0 4px,transparent 5px) 32px 0/48px 13px;background-color:#0d3022}
+header p{color:#f9e9c3}
+.card,.identity-panel{border:1px solid #d4e4d8;box-shadow:0 3px 14px #163b2520}
+.card h2{color:#214e36}
+nav button{background:#e0ece3;color:#214e36;border:1px solid #c5d9ca}
+nav button.active,.primary-action,#enter-app,#send-idea{background:#a92335;color:white;border-color:#a92335}
+.task input[type=checkbox]{accent-color:#28734c}
+footer{color:#365c46}
+.christmas-greeting{font-size:.9rem;font-weight:600;letter-spacing:.02em;color:#ffe2a0;margin:10px 0 0}
+.christmas-snow{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:2}
+.christmas-snow span{position:absolute;top:-25px;color:#fff;text-shadow:0 0 3px #628775;font-size:14px;animation:christmas-fall 12s linear infinite}
+@keyframes christmas-fall{to{transform:translate(30px,110vh) rotate(120deg)}}
+@media(prefers-reduced-motion:reduce){.christmas-snow{display:none}}
+</style><header><h1>🎄 Household Chore Tracker</h1><p>Daily dishes · Laundry · Cleaning areas</p><p class="christmas-greeting">✨ Merry Christmas, everyone! ✨</p></header><div class="christmas-snow" aria-hidden="true"><span style="left:0%;animation-delay:-0s;animation-duration:10s">❄</span><span style="left:8.3%;animation-delay:-1.7s;animation-duration:12s">❄</span><span style="left:16.6%;animation-delay:-3.4s;animation-duration:14s">❄</span><span style="left:24.9%;animation-delay:-5.1s;animation-duration:16s">❄</span><span style="left:33.2%;animation-delay:-6.8s;animation-duration:18s">❄</span><span style="left:41.5%;animation-delay:-8.5s;animation-duration:10s">❄</span><span style="left:49.8%;animation-delay:-10.2s;animation-duration:12s">❄</span><span style="left:58.1%;animation-delay:-11.9s;animation-duration:14s">❄</span><span style="left:66.4%;animation-delay:-13.6s;animation-duration:16s">❄</span><span style="left:74.7%;animation-delay:-15.299999999999999s;animation-duration:18s">❄</span><span style="left:83%;animation-delay:-17s;animation-duration:10s">❄</span><span style="left:91.3%;animation-delay:-18.7s;animation-duration:12s">❄</span></div><div id="identity" class="identity-overlay" hidden></div><main><div id="identity-banner" class="identity-banner"></div><nav id="tabs"></nav><section id="content"></section></main><footer>Version 4.1 · Christmas edition · Cloud sync when connected. Review assignments against the handwritten original.</footer>
 <script>
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const dishes=['Natalie','Wyatt','Kaedyn','Greyson','Rhyan','Logan','Trystan'];
@@ -63,7 +81,7 @@ function checks(d=new Date()){
  const w=week(d);if(cloudReady&&cloudWeeks[w])return Object.fromEntries(Object.entries(cloudWeeks[w]).filter(([id,v])=>afterReset(v.at,taskResetAt)));
  try{return Object.fromEntries(Object.entries(JSON.parse(localStorage.getItem(key(d))||'{}')).filter(([id,v])=>afterReset(v?.at,taskResetAt)))}catch{return {}}
 }
-const encouragements=['Great job! 🌟','You crushed it! 🏆','Amazing work! ✨','Way to go! 🎉','Fantastic effort! 💛','You are a superstar! ⭐'];
+const encouragements=['Santa would be proud! 🎅','Merry Christmas, chore champion! 🎄','You made the nice list! ⭐','Great job! 🌟','You crushed it! 🏆','Amazing work! ✨','Way to go! 🎉','Fantastic effort! 💛','You are a superstar! ⭐'];
 function celebrateChore(){
  document.querySelectorAll('.celebration-layer').forEach(e=>e.remove());
  const layer=document.createElement('div');layer.className='celebration-layer';layer.setAttribute('aria-live','polite');
